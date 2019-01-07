@@ -20,13 +20,13 @@ Bon uses LLVM to generate efficient machine code, either JIT compiled, or pre-co
 Calculating the 45th fibonacci number using a simple recusive implementation (as above) in Bon, Ruby, and Python:
 
 ```bash
-# Bon
+# Bon (full optimizations, includes JIT compile time)
 $ daniel@daniel-laptop:~/bon$ time ./bon examples/fib.bon
 1134903170
 
-real    0m7.520s
-user    0m7.492s
-sys     0m0.016s
+real    0m6.749s
+user    0m6.725s
+sys     0m0.005s
 
 # Ruby
 daniel@daniel-laptop:~/bon$ time ruby fib.rb
@@ -67,7 +67,7 @@ def factorial(x:float)->float
 end
 ```
 
-It also allows for defining generic variant types, which helps prevent a whole class of errors by ensuring safe access to memory:
+It also allows for defining generic variant types, which preventing a whole class of errors by ensuring safe access to memory:
 
 ```ocaml
 type option<a>
@@ -139,4 +139,6 @@ end
 
 ```
 
-Dedicated to the memory of Bonnie Gonzalez (May 26th 1957 - December 15th 2018).
+## Why another programming language?
+Bon is being designed as a programming language built around all of the things that make me enjoy programming, and it's dedicated to the memory of my mother. Her name was Bonnie, but everyone called her Bon.
+More information is available on my patreon page: https://www.patreon.com/d_p_gonz
