@@ -1,7 +1,7 @@
 # Introduction
 
 Bon is a programming language designed with simplicity, performance, and safety in mind.
-Documentation can be viewed [here](docs/ch00-01-contents.md)
+If you just want a quick look at the language, you can start [here](docs/ch01-03-quick-tour.md).
 
 ## Simplicity
 
