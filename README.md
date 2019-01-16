@@ -1,14 +1,18 @@
 # Introduction
+
 Bon is a programming language designed with simplicity, performance, and safety in mind.
+Documentation can be viewed [here](docs/ch00-01-contents.md)
 
 ## Simplicity
+
+In all aspects of its design, Bon aims to be both succinct, yet readable.
 
 ```ruby
 def fibonacci(x)
     if x < 2
         x
     else
-        fib(x-1) + fib(x-2)
+        fibonacci(x-1) + fibonacci(x-2)
     end
 end
 ```
@@ -57,9 +61,11 @@ def factorial(x)
     end
 end
 ```
+
 Could also be written with explicit types:
+
 ```ocaml
-def factorial(x:float)->float
+def factorial(x:int)->int
     match x
         0 => 1
         n => n * factorial(n - 1)
@@ -93,52 +99,9 @@ match response
 end
 ```
 
-In addition, defining recusive data types such as lists or trees is straight forward:
-```ocaml
-type list<a>
-    Empty
-    List(a, list)
-end
-
-my_string_list = List("hello", Empty)
-my_int_list = List(5, List(4, Empty))
-
-head = match my_int_list
-           List(hd, tl) => Some(hd)
-           Empty => None
-       end
-
-type tree<a>
-    Leaf
-    Node(a, tree, tree)
-end
-
-my_tree = Node(5,
-               Node(7,
-                    Node(10,
-                         Nil,
-                         Nil),
-                    Nil),
-               Node(20,
-                    Nil,
-                    Node(18,
-                         Nil,
-                         Nil)))
-
-def print_tree(a_tree)
-    match a_tree
-        Nil => print("Nil")
-        Node(val, Nil, Nil) => print(val)
-        Node(val, left, right) =>
-            print(val)
-            print_tree(left)
-            print_tree(right)
-        end
-    end
-end
-
-```
+In addition, defining recusive data types such as lists or trees is straight forward. You can see more in the [documentation](docs/ch00-01-contents.md)
 
 ## Why another programming language?
-Bon is being designed as a programming language built around all of the things that make me enjoy programming, and it's dedicated to the memory of my mother. Her name was Bonnie, but everyone called her Bon.
+
+Bon is being designed as a programming language built around all of the things that make me enjoy programming, and it's dedicated to the memory of my mother. Her name was Bonnie, but everyone called her Bon, so that is where the name comes from.
 More information is available on my patreon page: https://www.patreon.com/d_p_gonz
