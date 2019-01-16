@@ -1,0 +1,10 @@
+cdef pow(b:float, e:float) -> float
+cdef sqrt(x:float) -> float
+
+def unary-(x)
+    0 - x
+end
+
+def operator**(a,n)
+    pow(a, n)
+end

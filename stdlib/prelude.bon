@@ -1,0 +1,8 @@
+cdef print(str:string) -> ()
+cdef printd(f:float) -> ()
+cdef str_concat(a:string, b:string) -> string
+cdef to_string(val:float) -> string
+
+import option
+import math
+import list
