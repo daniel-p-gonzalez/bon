@@ -1,0 +1,21 @@
+def insert(element, lst)
+    match lst
+        [] => [element]
+        head :: tail =>
+            if head > element
+                element :: lst
+            else
+                head :: insert(element, tail)
+            end
+        end
+    end
+end
+
+def sort(lst)
+    match lst
+        [] => []
+        head :: tail => insert(head, sort(tail))
+    end
+end
+
+print_list(sort([513, 1, 5, 2] ++ [235, 15, 0, 24]))

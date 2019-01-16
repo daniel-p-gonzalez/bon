@@ -1,0 +1,35 @@
+def factorial(x)
+    match x
+        0 => 1
+        n => n * factorial(n - 1)
+    end
+end
+
+# tail recursive version
+def tail_factorial_aux(accum, x)
+    match x
+        0 => accum
+        n => tail_factorial_aux(n * accum, n - 1)
+    end
+end
+
+def tail_factorial(x)
+    match x
+        0 => 1
+        n => tail_factorial_aux(n, n - 1)
+    end
+end
+
+# solve for the roots of the quadratic equation: a*x**2 + b*x + c
+def solve_quadratic(a, b, c)
+    d = b*b - 4.0*a*c
+    sd = sqrt(d)
+    r1 = (-b + sd) / (2.0*a)
+    r2 = (-b - sd) / (2.0*a)
+    print("Roots of 'x**2 - 4x + 3.9999999 = 0': " + to_string(r1) + ", " + to_string(r2))
+end
+
+print("Factorial of 15: " + to_string(factorial(15)))
+# try running with `bon -O0 examples/num.bon` to disable tail call optimization
+print("Factorial of 1000000 (requires tail call optimization to avoid stack overflow): " + to_string(tail_factorial(1000000)))
+solve_quadratic(1.0, -4.0, 3.9999999)
