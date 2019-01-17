@@ -1,0 +1,15 @@
+def identity(x)
+  return x
+end
+
+def add(x, y)
+    z = x + y
+    return z
+end
+
+print("Calling 'identity' with a number: " + to_string(identity(1)))
+print("Calling 'identity' with a string: " + identity("hello!"))
+
+print("Calling 'add' with numbers: " + to_string(add(5,10)))
+
+print("Calling 'add' with strings: " + add("this", " that"))

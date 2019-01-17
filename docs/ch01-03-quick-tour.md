@@ -89,6 +89,39 @@ end
 
 However, since types can be automatically inferred by their use, they are typically omitted.
 
+
+
+### Polymorphic function parameters
+
+Bon supports writing generic functions by allowing function parameter types to remain unbound until code needs to be generated for a function call. Here's an example:
+
+```ruby
+def identity(x)
+  return x
+end
+
+def add(x, y)
+    z = x + y
+    return z
+end
+
+print("Calling 'identity' with a number: " + to_string(identity(1)))
+print("Calling 'identity' with a string: " + identity("hello!"))
+
+print("Calling 'add' with numbers: " + to_string(add(5,10)))
+print("Calling 'add' with strings: " + add("this", " that"))
+
+```
+
+The output:
+
+```bash
+Calling 'identity' with a number: 1
+Calling 'identity' with a string: hello!
+Calling 'add' with numbers: 15
+Calling 'add' with strings: this that
+```
+
 ### Variants
 
 The power of pattern matching becomes apparent when we would like to constrain our program logic to respect the uncertain nature of our program state. As an example, if the user of our program requests a non-existent file, we have a few options. Some of the more common approaches are returning a null pointer, or an error code.
