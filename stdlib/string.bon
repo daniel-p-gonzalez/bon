@@ -1,0 +1,18 @@
+cdef print_string(str:string) -> ()
+cdef str_concat(a:string, b:string) -> string
+
+impl Concat<string>
+  def operator++(a:string, b:string) -> string
+    str_concat(a,b)
+  end
+end
+
+impl Print<string>
+  def to_string(x:string) -> string
+    x
+  end
+
+  def print(x:string) -> ()
+    print_string(x)
+  end
+end
