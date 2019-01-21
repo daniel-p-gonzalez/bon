@@ -1,10 +1,45 @@
 cdef pow(b:float, e:float) -> float
 cdef sqrt(x:float) -> float
-
-def unary-(x)
-    0 - x
-end
+cdef float_to_string(val:float) -> string
+cdef int_to_string(val:int) -> string
 
 def operator**(a,n)
     pow(a, n)
+end
+
+class Num<T>
+  def unary-(x:T)->T;
+end
+
+impl Num<float>
+  def unary-(x)
+      0.0 - x
+  end
+end
+
+impl Num<int>
+  def unary-(x)
+      0 - x
+  end
+end
+
+# implement Print for conversion to string
+impl Print<float>
+  def to_string(x:float)
+    return float_to_string(x)
+  end
+
+  def print(x:float) -> ()
+    print(float_to_string(x))
+  end
+end
+
+impl Print<int>
+  def to_string(x:int)
+    return int_to_string(x)
+  end
+
+  def print(x:int) -> ()
+    print(int_to_string(x))
+  end
 end

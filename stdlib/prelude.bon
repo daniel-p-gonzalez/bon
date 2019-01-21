@@ -1,8 +1,13 @@
-cdef print(str:string) -> ()
-cdef printd(f:float) -> ()
-cdef str_concat(a:string, b:string) -> string
-cdef to_string(val:float) -> string
+class Concat<T>
+  def operator++(a:T, b:T) -> T;
+end
 
+class Print<T>
+  def to_string(x:T) -> string;
+  def print(x:T) -> ();
+end
+
+import string
 import option
 import math
 import list

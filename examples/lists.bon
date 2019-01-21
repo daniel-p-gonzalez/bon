@@ -1,16 +1,20 @@
 def list_match(x)
-    match x
-        [] => print("Found empty list")
-        [5] => print("Found 5")
-        10::[] => print("Found 10")
-        hd :: tl => print("Using 'hd :: tl' match. Head is: " + to_string(hd))
-    end
+  match x
+    [] => print("Found empty list")
+    [5] => print("Found 5")
+    10::[] => print("Found 10")
+    [1,2,3] => print("Found [1,2,3]")
+    hd :: snd :: [] => print("Found list with 2 elements: " ++ to_string(hd) ++ ", " ++ to_string(snd))
+    hd :: tl => print("Using 'hd :: tl' match. Head is: " ++ to_string(hd))
+  end
 end
 
 list_match([])
 list_match([5])
 list_match([10])
 list_match([15])
+list_match([1,2,3])
+list_match([20,25])
 list_match([10,5,1])
 
 print_list([1,2,3,4] ++ [5,6,7,8])

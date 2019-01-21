@@ -25,12 +25,12 @@ You can introduce local variables into functions with the assignment operator:
 ```ruby
 def noisy_square(x)
     y = x * x
-    print(to_string(x) + " squared is " + to_string(y))
+    print(to_string(x) ++ " squared is " ++ to_string(y))
     return y
 end
 ```
 
-Notice we used an optional "return" here. By convention it isn't typically used, but when we're returning a single variable it can look lonely!
+Notice we used an optional "return" here. For expressions it isn't typically used, but when we're returning a single variable it can look lonely! Also note that `++` is the concatenation operator in Bon, which works on both strings and lists.
 
 ### Control Flow
 
@@ -75,7 +75,7 @@ A variable will always match to the input value (or a part of the value for more
 
 ### Type Checking and Type Inference
 
-You'll notice in all of the above examples that we didn't specify any types for variables or in function definitions. However, this does not mean Bon is a dynamically typed language. It has what is typically referred to as a [Hindley-Milner type system](https://en.wikipedia.org/wiki/Hindley–Milner_type_system).
+You'll notice in all of the above examples that we didn't specify any types for variables or in function definitions. However, this does not mean Bon is a dynamically typed language. It has what is commonly called a [Hindley-Milner type system](https://en.wikipedia.org/wiki/Hindley–Milner_type_system).
 
 You don't have to learn all the details up front in order to be able to take advantage of the type system - in fact you already have if you've followed along with the examples.
 
@@ -87,11 +87,9 @@ def square(x:float) -> float
 end
 ```
 
-However, since types can be automatically inferred by their use, they are typically omitted.
+However, since types can be automatically inferred by their use, they are typically omitted. Also, if we specify the type as `float` in this case, we can no longer also use the function with integers.
 
-
-
-### Polymorphic function parameters
+### Generic function parameters
 
 Bon supports writing generic functions by allowing function parameter types to remain unbound until code needs to be generated for a function call. Here's an example:
 
@@ -105,12 +103,11 @@ def add(x, y)
     return z
 end
 
-print("Calling 'identity' with a number: " + to_string(identity(1)))
-print("Calling 'identity' with a string: " + identity("hello!"))
+print("Calling 'identity' with a number: " ++ to_string(identity(1)))
+print("Calling 'identity' with a string: " ++ identity("hello!"))
 
-print("Calling 'add' with numbers: " + to_string(add(5,10)))
-print("Calling 'add' with strings: " + add("this", " that"))
-
+print("Calling 'add' with integers: " ++ to_string(add(5, 10)))
+print("Calling 'add' with floats: " ++ to_string(add(19.57, 20.18)))
 ```
 
 The output:
@@ -118,8 +115,85 @@ The output:
 ```bash
 Calling 'identity' with a number: 1
 Calling 'identity' with a string: hello!
-Calling 'add' with numbers: 15
-Calling 'add' with strings: this that
+Calling 'add' with integers: 15
+Calling 'add' with floats: 39.75
+```
+
+### Types and Classes
+
+To define a type in Bon, we use the `type` keyword, and specify a __constructor__ for the type:
+
+```ocaml
+type point2d
+  Point2D(x:float, y:float)
+end
+```
+
+Here's how we construct an object of this type, and access its fields:
+
+```ocaml
+p = Point2D(2.0, 1.5)
+print(p.x)
+```
+
+Bon supports polymorphic types for function and operator overloading using what are known as __typeclasses__. As an example, we're going to create a simple typeclass which will require members of the class to implement a single function `norm`:
+
+```ocaml
+class Norm<T>
+  def norm(v:T) -> float;
+end
+```
+
+To implement norm for our 2d point type above, we simple have to add the implementation:
+
+```ocaml
+impl Norm<point2d>
+  def norm(v:point2d) -> float
+    sqrt(v.x * v.x + v.y * v.y)
+  end
+end
+```
+
+Note that we didn't have to implement this as part of the type's original definition, allowing us to extend it after the fact.
+
+Let's look at the full example with an additional 3d point type.
+
+Filename: typeclass.bon
+
+```ocaml
+class Norm<T>
+  def norm(v:T) -> float;
+end
+
+type point2d
+  Point2D(x:float, y:float)
+end
+
+impl Norm<point2d>
+  def norm(v:point2d) -> float
+    sqrt(v.x * v.x + v.y * v.y)
+  end
+end
+
+type point3d
+  Point3D(x:float, y:float, z:float)
+end
+
+impl Norm<point3d>
+  def norm(v:point3d) -> float
+    sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+  end
+end
+
+def main()
+  print("Test of typeclasses:")
+  p = Point2D(2.0, 1.5)
+  print(norm(p))
+  p2 = Point3D(2.0, 1.5, 3.0)
+  print(norm(p2))
+end
+
+main()
 ```
 
 ### Variants
@@ -137,14 +211,14 @@ type option<a>
 end
 ```
 
-"Some" and "None" are called __constructors__, and are used to construct instances of the type. For example:
+Notice how unlike the examples in the previous section, there are now two constructors: "Some" and "None". We call types with multiple constructors __variants__ (or alternatively, __sum types__). We can construct instances of these types similarly:
 
 ```ocaml
 x = Some(5)
 y = None
 ```
 
-Now in order to access the value "a", we need to use pattern matching:
+Now in order to know which constructor we used to construct our `option` instance, or to access the value within our `Some` instance, we need to use pattern matching:
 
 ```ocaml
 match x
@@ -153,7 +227,7 @@ match x
 end
 ```
 
-This allows us to ask the compiler to enforce safe access to data, rather than relying on proper use of conventions, for example checking null pointers before dereferencing them. The usefulness of variants extends beyond simple types like `option` however, which we'll see when we look at lists next.
+Using this `option` type allows us to ask the compiler to enforce safe access to data, rather than relying on proper use of conventions (for example remembering to check for null pointers before dereferencing them). The usefulness of variants extends beyond simple types like `option` however, which we'll see when we look at lists next.
 
 ### Lists
 
@@ -175,19 +249,25 @@ Filename: lists.bon
 
 ```ocaml
 def list_match(x)
-    match x
-        [] => print("Found empty list")
-        [5] => print("Found 5")
-        10::[] => print("Found 10")
-        hd :: tl => print("Using 'hd :: tl' match. Head is: " + to_string(hd))
-    end
+  match x
+    [] => print("Found empty list")
+    [5] => print("Found 5")
+    10::[] => print("Found 10")
+    [1,2,3] => print("Found [1,2,3]")
+    hd :: snd :: [] => print("Found list with 2 elements: " ++ to_string(hd) ++ ", " ++ to_string(snd))
+    hd :: tl => print("Using 'hd :: tl' match. Head is: " ++ to_string(hd))
+  end
 end
 
 list_match([])
 list_match([5])
 list_match([10])
 list_match([15])
+list_match([1,2,3])
+list_match([20,25])
 list_match([10,5,1])
+
+
 ```
 
 The output shouldn't be too surprising:
@@ -198,6 +278,8 @@ Found empty list
 Found 5
 Found 10
 Using 'hd :: tl' match. Head is: 15
+Found [1,2,3]
+Found list with 2 elements: 20, 25
 Using 'hd :: tl' match. Head is: 10
 ```
 
@@ -209,7 +291,7 @@ To concatenate lists together, you use the ++ operator:
 [1,2,3,4] ++ [5,6,7,8]
 ```
 
-Under the covers, lists are implemented within the language as a recursive variant type:
+Under the covers, lists are implemented within the language as a recursive variant type (with syntactic sugar added for `::` and `[]`):
 
 ```ocaml
 type list<a>
@@ -221,11 +303,13 @@ end
 You can see some more usage of pattern matching in the implementation of list concatenation:
 
 ```ocaml
-def operator++(lhs, rhs)
+impl Concat<list>
+  def operator++(lhs:list, rhs:list) -> list
     match lhs
-        [] => rhs
-        hd :: tl => hd :: (tl ++ rhs)
+      [] => rhs
+      hd :: tl => hd :: (tl ++ rhs)
     end
+  end
 end
 ```
 

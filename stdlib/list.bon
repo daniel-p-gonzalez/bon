@@ -1,13 +1,15 @@
 type list<a>
-    Empty
-    Cons(a, list)
+  Empty
+  Cons(a, list)
 end
 
-def operator++(lhs, rhs)
+impl Concat<list>
+  def operator++(lhs:list, rhs:list) -> list
     match lhs
-        [] => rhs
-        hd :: tl => hd :: (tl ++ rhs)
+      [] => rhs
+      hd :: tl => hd :: (tl ++ rhs)
     end
+  end
 end
 
 def list_to_string_aux(lst)
@@ -15,13 +17,13 @@ def list_to_string_aux(lst)
         [] => ""
         last :: [] => to_string(last)
         head :: tail =>
-            to_string(head) + ", " + list_to_string_aux(tail)
+            to_string(head) ++ ", " ++ list_to_string_aux(tail)
         end
     end
 end
 
 def list_to_string(lst)
-    "[" + list_to_string_aux(lst) + "]"
+    "[" ++ list_to_string_aux(lst) ++ "]"
 end
 
 def print_list(lst)
@@ -31,7 +33,7 @@ end
 def length_aux(lst, len)
     match lst
         Empty => len
-        Cons(head, tail) => length_aux(tail, len+1)
+        head :: tail => length_aux(tail, len+1)
     end
 end
 
@@ -42,7 +44,7 @@ end
 def nth(lst, n)
     match lst
         Empty => None
-        Cons(head, tail) =>
+        head :: tail =>
             if n > 0
                 nth(tail, n-1)
             else

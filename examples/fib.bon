@@ -1,4 +1,4 @@
-def fibonacci(n)
+def fibonacci(n:int) -> int
     if n < 2
         n
     else
@@ -7,4 +7,4 @@ def fibonacci(n)
 end
 
 print("Calculating the 45th fibonacci number:")
-print(to_string(fibonacci(45)))
+print(fibonacci(45))
