@@ -11,29 +11,40 @@ In all aspects of its design, Bon aims to be succinct, yet readable.
 Code written in Bon tends to look similar to a scripting language such as Ruby or Python:
 
 ```ruby
-def fibonacci(x)
+def fib(x)
     if x < 2
         x
     else
-        fibonacci(x-1) + fibonacci(x-2)
+        fib(x-1) + fib(x-2)
     end
 end
+
+print("Hello, World!")
+print(fib(15) == 610)
 ```
 
 ## Performance
 
 Bon uses LLVM to generate efficient machine code, either JIT compiled, or pre-compiled to a binary.
 
-Calculating the 45th fibonacci number using a simple recusive implementation (as above) in Bon, Ruby, and Python:
+Calculating the 45th fibonacci number using a simple recusive implementation (as above) in Bon, C++, Ruby, and Python:
 
 ```bash
-# Bon
+# Bon (time for compile and run)
 $ daniel@daniel-laptop:~/bon$ time ./bon examples/fib.bon
 1134903170
 
 real    0m6.749s
 user    0m6.725s
 sys     0m0.005s
+
+# C++ (time for compile and run)
+$ daniel@daniel-laptop:~/bon$ time (clang++ fib.cc -o fib -O3 && ./fib)
+1134903170
+
+real    0m6.071s
+user    0m5.996s
+sys     0m0.054s
 
 # Ruby
 daniel@daniel-laptop:~/bon$ time ruby fib.rb

@@ -1,0 +1,15 @@
+impl Print<bool>
+  def print(x:bool) -> ()
+    match x
+      true => print("true")
+      false => print("false")
+    end
+  end
+
+  def to_string(x:bool) -> string
+    match x
+      true => "true"
+      false => "false"
+    end
+  end
+end

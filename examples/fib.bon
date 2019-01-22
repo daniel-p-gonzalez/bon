@@ -1,10 +1,10 @@
-def fibonacci(n:int) -> int
-    if n < 2
+def fibonacci(n:float) -> float
+    if n < 2.0
         n
     else
-        fibonacci(n-1) + fibonacci(n-2)
+        fibonacci(n-1.0) + fibonacci(n-2.0)
     end
 end
 
 print("Calculating the 45th fibonacci number:")
-print(fibonacci(45))
+print(fibonacci(45.0))
