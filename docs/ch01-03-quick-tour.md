@@ -87,7 +87,7 @@ def square(x:float) -> float
 end
 ```
 
-However, since types can be automatically inferred by their use, they are typically omitted. Also, if we specify the type as `float` in this case, we can no longer also use the function with integers.
+However, since types can be automatically inferred by their use, its convenient to omit them. Also, if we specify the type as `float` in this case, we can no longer also use the function with integers.
 
 ### Generic function parameters
 
@@ -129,7 +129,7 @@ type point2d
 end
 ```
 
-Here's how we construct an object of this type, and access its fields:
+Here's how we can construct an object of this type, and access its named fields:
 
 ```ocaml
 p = Point2D(2.0, 1.5)
@@ -144,7 +144,7 @@ class Norm<T>
 end
 ```
 
-To implement norm for our 2d point type above, we simple have to add the implementation:
+To implement norm for our 2d point type above, we simply have to add the implementation:
 
 ```ocaml
 impl Norm<point2d>
@@ -211,7 +211,7 @@ type option<a>
 end
 ```
 
-Notice how unlike the examples in the previous section, there are now two constructors: "Some" and "None". We call types with multiple constructors __variants__ (or alternatively, __sum types__). We can construct instances of these types similarly:
+Notice how unlike the examples in the previous section, there are now two constructors: `Some` and `None`. We call types with multiple constructors __variants__ (or alternatively, __sum types__). We can construct instances of these types similarly:
 
 ```ocaml
 x = Some(5)
@@ -233,7 +233,7 @@ Using this `option` type allows us to ask the compiler to enforce safe access to
 
 You can define a list like so:
 
-```python
+```ruby
 x = [1,4,5,1]
 # alternatively, using :: (called the "cons" operator), and [] (the "empty" list) marking the end
 x = 1 :: 4 :: 5 :: 1 :: []
@@ -266,8 +266,6 @@ list_match([15])
 list_match([1,2,3])
 list_match([20,25])
 list_match([10,5,1])
-
-
 ```
 
 The output shouldn't be too surprising:
@@ -313,9 +311,7 @@ impl Concat<list>
 end
 ```
 
-### Wrap up
-
-Let's try something more interesting using everything we've learned so far. Here is an  implementation of insertion sort to study:
+Let's try something more interesting using everything we've learned about lists. Here is an implementation of insertion sort to study:
 
 Filename: sort.bon
 
@@ -348,4 +344,134 @@ And the output:
 ```bash
 $ bon sort.bon
 [0, 1, 2, 5, 15, 24, 235, 513]
+```
+
+### Wrap Up
+
+Finally, let's look at an example that uses everything we've learned up to this point.
+It's a simple program which prints out a description of a programming language given its capabilities. Try not to take it too seriously!
+
+Filename: languages.bon
+
+```ruby
+# strong or weak type system?
+type type_safety
+  Strong
+  Weak
+end
+
+# types checked at compile type, or runtime?
+type type_checking
+  Static
+  Dynamic
+end
+
+type type_system
+  TypeSystem(type_safety, type_checking)
+end
+
+type language
+  Language(name: string,
+           typing: type_system,
+           type_infer: bool,
+           pattern_match: bool,
+           polymorphism_support: string)
+end
+
+# generate description string by pattern matching its capabilities
+def describe_language(lang)
+  desc = lang.name ++ " is a programming language with:\n"
+
+  desc = match lang.typing
+    TypeSystem(Strong, Static) => desc ++ "  - Strong, static type system\n"
+    TypeSystem(Strong, Dynamic) => desc ++ "  - Strong, dynamic type system\n"
+    TypeSystem(Weak, Static) => desc ++ "  - Weak, static type system\n"
+    TypeSystem(Weak, Dynamic) => desc ++ "  - Weak, dynamic type system\n"
+  end
+
+  desc = match lang.type_infer
+    true => desc ++ "  - Type Inference\n"
+    false => desc
+  end
+
+  desc = match lang.pattern_match
+    true => desc ++ "  - Pattern Matching\n"
+    false => desc
+  end
+
+  desc = desc ++ "  - Support for polymorphism through " ++ lang.polymorphism_support
+  return desc ++ "\n"
+end
+
+# implement printing and conversion to string for language type
+impl Print<language>
+  def print(lang:language) -> ()
+    print(describe_language(lang))
+  end
+
+  def to_string(lang:language) -> string
+    describe_language(lang)
+  end
+end
+
+def main()
+  bon = Language("Bon", TypeSystem(Strong, Static), true, true, "typeclasses")
+  cpp = Language("C++", TypeSystem(Weak, Static), false, false, "classes")
+  ocaml = Language("OCaml", TypeSystem(Strong, Static), true, true, "classes and modules")
+  haskell = Language("Haskell", TypeSystem(Strong, Static), true, true, "typeclasses")
+  elixir = Language("Elixir", TypeSystem(Strong, Dynamic), false, true, "protocols")
+  rust = Language("Rust", TypeSystem(Strong, Static), true, true, "traits")
+  python = Language("Python", TypeSystem(Strong, Dynamic), false, false, "classes")
+
+  print(bon)
+  print(cpp)
+  print(ocaml)
+  print(haskell)
+  print(elixir)
+  print(rust)
+  print(python)
+end
+
+main()
+```
+
+Output:
+
+```bash
+Bon is a programming language with:
+  - Strong, static type system
+  - Type Inference
+  - Pattern Matching
+  - Support for polymorphism through typeclasses
+
+C++ is a programming language with:
+  - Weak, static type system
+  - Support for polymorphism through classes
+
+OCaml is a programming language with:
+  - Strong, static type system
+  - Type Inference
+  - Pattern Matching
+  - Support for polymorphism through classes and modules
+
+Haskell is a programming language with:
+  - Strong, static type system
+  - Type Inference
+  - Pattern Matching
+  - Support for polymorphism through typeclasses
+
+Elixir is a programming language with:
+  - Strong, dynamic type system
+  - Pattern Matching
+  - Support for polymorphism through protocols
+
+Rust is a programming language with:
+  - Strong, static type system
+  - Type Inference
+  - Pattern Matching
+  - Support for polymorphism through traits
+
+Python is a programming language with:
+  - Strong, dynamic type system
+  - Support for polymorphism through classes
 ```

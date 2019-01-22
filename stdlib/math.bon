@@ -1,5 +1,7 @@
 cdef pow(b:float, e:float) -> float
 cdef sqrt(x:float) -> float
+cdef sin(x:float) -> float
+cdef cos(x:float) -> float
 cdef float_to_string(val:float) -> string
 cdef int_to_string(val:int) -> string
 

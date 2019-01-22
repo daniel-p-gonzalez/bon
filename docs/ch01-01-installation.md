@@ -15,6 +15,7 @@ To test that everything installed properly:
 
 ```bash
 $ bon --version
+Bon <version_number>
 $ bon examples/hello.bon
 Hello, world!
 ```
@@ -23,6 +24,9 @@ Hello, world!
 
 ### Other platforms
 
-Bon is in a very early stage of development, so there are no other supported platforms (though MacOS __may__ just work). Help with testing and supporting other platforms would be greatly appreciated.
+Bon is in a very early stage of development, so there currently are no other supported platforms (though MacOS __may__ just work). Help with testing and supporting other platforms would be greatly appreciated.
 
 
+### Next steps
+
+Check out the [Hello World](ch01-02-hello-world.md) to get started, or head to the [quick tour](ch01-03-quick-tour.md) for a more thorough introduction to Bon's core concepts.

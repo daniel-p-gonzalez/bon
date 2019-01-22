@@ -1,4 +1,5 @@
 cdef print_string(str:string) -> ()
+cdef write_string(str:string) -> ()
 cdef str_concat(a:string, b:string) -> string
 
 impl Concat<string>
@@ -14,5 +15,9 @@ impl Print<string>
 
   def print(x:string) -> ()
     print_string(x)
+  end
+
+  def write(x:string) -> ()
+    write_string(x)
   end
 end

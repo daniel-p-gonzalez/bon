@@ -1,6 +1,6 @@
 ## Hello World!
 
-Following tradition, we're start our journey with the simplest possible program.
+Following tradition, we're starting our journey with the simplest possible program.
 
 Filename: hello.bon
 
