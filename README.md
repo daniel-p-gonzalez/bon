@@ -65,7 +65,7 @@ sys     0m0.012s
 
 ## Safety
 
-Performance doesn't have to come at the expense of safety, and safety doesn't have to come at the expense of simplicity. Bon has a powerful static type system which allows for simplifying code with type inference and pattern matching. In addition, defining recusive data types such as lists or trees is straight forward.
+Performance doesn't have to come at the expense of safety, and safety doesn't have to come at the expense of simplicity. Bon has a powerful static type system which allows for simplifying code with type inference and pattern matching. In addition, defining recursive data types such as lists or trees is straight forward.
 
 Learn more in the [documentation](docs/ch00-01-contents.md)
 
