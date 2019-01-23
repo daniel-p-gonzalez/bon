@@ -2,7 +2,9 @@
 
 ### Linux
 
-To build Bon, you need to first install the LLVM dev toolchain (i.e. install the llvm-dev package using apt in Ubuntu, or build from source from [here](http://releases.llvm.org)). Currently, the only version tested is 4.0.1, so your mileage may vary if you build against a different version.
+To build Bon, you need to first install these dependencies:
+- CMake (at least version 3.4.3)
+- LLVM dev toolchain (i.e. install the llvm-dev package using apt in Ubuntu, or build from source from [here](http://releases.llvm.org)). Currently, the only version tested is 4.0.1, so your mileage may vary if you build against a different version.
 
 ```bash
 $ git clone https://github.com/FBMachine/bon.git
