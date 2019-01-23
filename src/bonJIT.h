@@ -15,7 +15,12 @@ L*----------------------------------------------------------------------------*/
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm-4.0/llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR <= 4
+  #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#else
+  #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#endif
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Support/DynamicLibrary.h"
