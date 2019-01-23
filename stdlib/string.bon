@@ -1,10 +1,17 @@
 cdef print_string(str:string) -> ()
 cdef write_string(str:string) -> ()
 cdef str_concat(a:string, b:string) -> string
+cdef str_eq(str1:string, str2:string) -> bool
 
 impl Concat<string>
   def operator++(a:string, b:string) -> string
     str_concat(a,b)
+  end
+end
+
+impl Eq<string>
+  def operator==(a:string, b:string) -> bool
+    str_eq(a,b)
   end
 end
 

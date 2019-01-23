@@ -306,6 +306,14 @@ bool _type_operators_match(TypeOperator* lhs, TypeOperator* rhs,
         else if (rhs->type_constructor_ == " | ") {
             return sum_type_matches(rhs, lhs);
         }
+        else if (auto variant =
+                    get_type_from_constructor(lhs->type_constructor_)) {
+            variant = resolve_variable(variant);
+            if (!variant->type_operator_) {
+                return false;
+            }
+            return sum_type_matches(variant->type_operator_, rhs);
+        }
         return false;
     }
     if (lhs->types_.size() != rhs->types_.size()) {

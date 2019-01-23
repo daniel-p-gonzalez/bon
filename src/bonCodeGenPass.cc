@@ -1306,10 +1306,23 @@ void CaseGenPass::process(IntegerExprAST* node) {
 
 // StringExprAST
 void CaseGenPass::process(StringExprAST* node) {
-  // TODO: string compare
-  // node->run_pass(codegen_);
-  // Value* num_value = codegen_->result();
-  // returns (state_.builder.CreateICmpEQ(num_value, pattern_, "cmptmp"));
+  node->run_pass(codegen_);
+  Value* str_value = codegen_->result();
+
+  std::vector<Value*> call_args;
+  call_args.push_back(str_value);
+  call_args.push_back(pattern_);
+
+  // lookup string equality function
+  auto string_cmp = codegen_->get_function("str_eq");
+  if (!string_cmp) {
+    std::ostringstream msg;
+    logger.error("internal error", msg << "missing str_eq implementation");
+    returns (nullptr);
+    return;
+  }
+
+  returns (state_.builder.CreateCall(string_cmp, call_args, "str_eq"));
 }
 
 // BoolExprAST

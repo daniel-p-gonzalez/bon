@@ -7,6 +7,14 @@ class Print<T>
   def print(x:T) -> ();
 end
 
+class Eq<T>
+  def operator==(a:T, b:T) -> bool;
+end
+
+type pair<a>
+  Pair(a, a)
+end
+
 import string
 import option
 import math

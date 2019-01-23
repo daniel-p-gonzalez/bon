@@ -979,7 +979,8 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
         return nullptr;
       }
       auto new_tvar = new bon::TypeVariable();
-      std::string tparam_name = "'" + tokenizer_.identifier();
+      std::string tparam_name = type_name + ":" + tokenizer_.identifier();
+      // std::string tparam_name = "'" + tokenizer_.identifier();
       new_tvar->type_name_ = tparam_name;
       type_parameters[tparam_name] = new_tvar;
       tokenizer_.consume();
@@ -1053,9 +1054,10 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
       std::string tparam_name = tokenizer_.identifier();
       // eat identifier
       tokenizer_.consume();
-      if (type_parameters.find("'" + tparam_name) != type_parameters.end()) {
+      std::string mangled_tparam_name = type_name + ":" + tparam_name;
+      if (type_parameters.find(mangled_tparam_name) != type_parameters.end()) {
         // store reference to variable
-        tcon_params.push_back(type_parameters["'" + tparam_name]);
+        tcon_params.push_back(type_parameters[mangled_tparam_name]);
       }
       else {
         if (tokenizer_.peak() == tok_colon) {

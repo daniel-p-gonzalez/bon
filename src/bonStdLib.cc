@@ -7,6 +7,7 @@ L*----------------------------------------------------------------------------*/
 #include <cstdio>
 #include <iomanip>
 #include <sstream>
+#include <cstring>
 
 extern "C" void print_string(char* str) {
   std::cout << str << std::endl;
@@ -27,6 +28,10 @@ extern "C" char* str_concat(char* str1, char* str2) {
   }
   new_str[result.size()] = 0;
   return new_str;
+}
+
+extern "C" bool str_eq(char* str1, char* str2) {
+  return strcmp(str1, str2) == 0;
 }
 
 extern "C" char* int_to_string(int64_t val) {
