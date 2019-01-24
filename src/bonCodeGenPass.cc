@@ -76,7 +76,6 @@ void CodeGenPass::process(BoolExprAST* node) {
 void CodeGenPass::process(UnitExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
 
-  // TODO: should just be discarding unit values
   auto tname = node->type_var_->get_name();
   StructType* structReg = state_.struct_map[tname];
   if (!structReg) {
@@ -89,16 +88,7 @@ void CodeGenPass::process(UnitExprAST* node) {
   }
   auto entry_block = state_.builder.GetInsertBlock();
 
-  Type* ITy = Type::getInt32Ty(state_.llvm_context);
-  Constant* AllocSize = ConstantExpr::getSizeOf(structReg);
-  AllocSize = ConstantExpr::getTruncOrBitCast(AllocSize, ITy);
-  // TODO: since '()' is never dereferenced, can just point anywhere
-  //       instead of leaking memory like crazy
-  Instruction* val_alloc = CallInst::CreateMalloc(entry_block,
-                                              ITy, structReg, AllocSize,
-                                              nullptr, nullptr);
-
-  state_.builder.Insert(val_alloc, "()");
+  Value* val_alloc = ConstantExpr::getNullValue(structReg);
 
   Value* val_type_ptr =
       state_.builder.CreateStructGEP(structReg, val_alloc, 0,
