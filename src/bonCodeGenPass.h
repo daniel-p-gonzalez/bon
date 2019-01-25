@@ -84,6 +84,16 @@ private:
   friend CaseGenPass;
   ModuleState &state_;
   CaseGenPass case_gen_pass_;
+  // variable name to line number it was moved on
+  std::map<std::string, DocPosition> moved_vars_;
+  // allocations to free at end of scope
+  std::set<Value*> free_list_;
+  // parameters are borrowed - don't free
+  std::set<Value*> borrowed_list_;
+  std::set<Value*> child_mem_list_;
+  // inside codegen for a constructor?
+  // needed for managing memory ownership
+  bool in_constructor_;
 
   struct CaseState {
     Value* pattern;
@@ -130,9 +140,12 @@ private:
                                         TypeVariable* var_type,
                                         ExprAST* var_expr=nullptr,
                                         bool use_ptr=false);
+
+  // free memory associated with constructed object
+  void free_obj(Value* obj_ptr, bool is_child_obj);
   // we need a way to retrieve the output of the last instruction
   // so we cache the result to use as a return value
-  void returns(Value* value);
+  void returns(ExprAST* node, Value* value);
   // return value for the last "process" call
   Value* last_value_;
 public:

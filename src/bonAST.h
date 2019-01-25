@@ -30,6 +30,8 @@ struct ExprAST {
   size_t line_num_;
   size_t column_num_;
   bool is_boxed_;
+  // for tracking lifetimes
+  bool ends_scope_;
 
   ExprAST(size_t line_num, size_t column_num);
   virtual ~ExprAST() = default;

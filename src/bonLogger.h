@@ -14,6 +14,14 @@ namespace bon {
 class max_warnings_exception : public std::exception {};
 class max_errors_exception : public std::exception {};
 
+struct DocPosition
+{
+  size_t line;
+  size_t column;
+  DocPosition() : line(0), column(0) {}
+  DocPosition(size_t line, size_t column) : line(line), column(column) {}
+};
+
 class Logger {
 private:
   std::string current_file_;
@@ -32,6 +40,7 @@ public:
   bool had_errors();
   void set_current_file(std::string current_file);
   std::string get_current_file();
+  void set_line_column(DocPosition pos);
   void set_line_column(size_t line_num, size_t column_num);
   void config(uint32_t max_errors=20, uint32_t max_warnings=100,
               bool always_display_final_msg=false);
@@ -39,6 +48,9 @@ public:
 
   // returns current line
   std::string get_context();
+
+  void info(std::string type, std::ostream &message_stream);
+  void info(std::string type, std::string message);
 
   void warn(std::string type, std::ostream &message_stream);
   void warn(std::string type, std::string message);

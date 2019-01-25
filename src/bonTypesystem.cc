@@ -506,9 +506,9 @@ TypeVariable* build_function_type(std::vector<TypeVariable*> &param_types,
         // in_types = new TypeVariable();
     }
     auto out_type = ret_type ? ret_type : new TypeVariable();
-    std::vector<TypeVariable*> func_types;
-    func_types.push_back(in_types);
-    func_types.push_back(out_type);
+    std::vector<TypeVariable*> func_types(2);
+    func_types[0] = in_types;
+    func_types[1] = out_type;
     auto func_type = new TypeVariable(new TypeOperator(" -> ", func_types));
 
     return func_type;

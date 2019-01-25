@@ -11,6 +11,10 @@ class Eq<T>
   def operator==(a:T, b:T) -> bool;
 end
 
+class Copy<T>
+  def copy(x:T) -> T;
+end
+
 type pair<a>
   Pair(a, a)
 end

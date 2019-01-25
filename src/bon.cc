@@ -8,6 +8,7 @@ L*----------------------------------------------------------------------------*/
 #include "bonParser.h"
 #include "bonLogger.h"
 #include "bonDebugASTPass.h"
+#include "bonScopeAnalysisPass.h"
 #include "bonTypeAnalysisPass.h"
 #include "bonCodeGenPass.h"
 #include "bonLLVM.h"
@@ -96,6 +97,33 @@ void init_module_and_passes() {
   state_.function_pass_manager->doInitialization();
 }
 
+bool run_scope_analysis() {
+  // typeclass type analysis
+  ScopeAnalysisPass scope_analysis_pass(state_);
+  for (auto &tclass_entry : state_.typeclasses) {
+    auto &tclass = tclass_entry.second;
+    tclass->run_pass(&scope_analysis_pass);
+  }
+
+  // function type analysis
+  for (auto func_name : state_.function_names) {
+    auto &funcAST = state_.all_functions[func_name];
+    funcAST->run_pass(&scope_analysis_pass);
+  }
+
+  // top-level type analysis
+  for (auto &funcAST : state_.toplevel_expressions) {
+    funcAST->run_pass(&scope_analysis_pass);
+  }
+
+  if (logger.had_errors()) {
+    logger.finalize();
+    return false;
+  }
+
+  return true;
+}
+
 bool run_type_analysis() {
   // typeclass type analysis
   TypeAnalysisPass type_analysis_pass(state_);
@@ -179,6 +207,10 @@ bool run_codegen() {
   for (auto &funcAST : state_.toplevel_expressions) {
     funcAST->run_pass(&code_gen_pass);
     if (auto* function_ir = code_gen_pass.result()) {
+      if (DUMP_ASM ||
+          (VERBOSE_OUTPUT && verifyModule(*state_.current_module, &errs()))) {
+        state_.current_module->dump();
+      }
       auto H = state_.JIT->addModule(std::move(state_.current_module));
       init_module_and_passes();
 
@@ -211,6 +243,9 @@ bool compile_file(std::string filename, bool should_run_codegen) {
   parser_.parse_file(filename);
   if (!should_run_codegen) {
     return true;
+  }
+  if (!run_scope_analysis()) {
+    return false;
   }
   if (!run_type_analysis()) {
     return false;

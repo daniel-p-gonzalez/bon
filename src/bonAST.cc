@@ -11,7 +11,8 @@ L*----------------------------------------------------------------------------*/
 namespace bon {
 
 ExprAST::ExprAST(size_t line_num, size_t column_num)
-  : line_num_(line_num), column_num_(column_num), is_boxed_(false) {
+  : line_num_(line_num), column_num_(column_num),
+    is_boxed_(false), ends_scope_(false) {
 }
 
 std::string ExprAST::getName() {

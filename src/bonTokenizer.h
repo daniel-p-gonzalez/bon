@@ -5,6 +5,8 @@
 L*----------------------------------------------------------------------------*/
 
 #pragma once
+#include "bonLogger.h"
+
 #include <vector>
 #include <string>
 
@@ -84,12 +86,6 @@ enum Token {
   tok_binary,
   tok_unary,
   tok_unknown
-};
-
-struct DocPosition
-{
-  size_t line;
-  size_t column;
 };
 
 class Tokenizer {

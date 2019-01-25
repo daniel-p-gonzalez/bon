@@ -86,6 +86,7 @@ void Parser::parse() {
       break;
     case tok_import:
       state_.filename = parse_import(state_.filename);
+      logger.set_current_file(state_.filename);
       break;
     default:
       // parse top-level expression into an anonymous function
@@ -329,10 +330,10 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
   std::string IdName = tokenizer_.identifier();
 
   size_t col_num = tokenizer_.column();
+  auto line_num = tokenizer_.line_number();
   // eat identifier
   tokenizer_.consume();
 
-  auto line_num = tokenizer_.line_number();
   // variable reference
   if (tokenizer_.peak() != tok_lparen && tokenizer_.peak() != bon::tok_unit) {
     auto var_expr = llvm::make_unique<VariableExprAST>(line_num, col_num,
@@ -379,6 +380,7 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
     }
   }
 
+  line_num = tokenizer_.line_number();
   if (expecting_args) {
     // eat ')'
     tokenizer_.consume();
@@ -443,13 +445,14 @@ std::unique_ptr<ExprAST> Parser::parse_match_expr() {
           tokenizer_.consume();
           continue;
         }
+        size_t line_num = tokenizer_.line_number();
         size_t col_num = tokenizer_.column();
         auto next_expr = parse_expression();
         if (!next_expr) {
           return nullptr;
         }
         // build expression sequence
-        case_body = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
+        case_body = llvm::make_unique<BinaryExprAST>(line_num,
                                                      col_num, tok_sep,
                                                      std::move(case_body),
                                                      std::move(next_expr));
@@ -554,14 +557,16 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
         tokenizer_.consume();
         continue;
       }
+      size_t line_num = tokenizer_.line_number();
       size_t col_num = tokenizer_.column();
       auto next_expr = parse_expression();
       if (!next_expr) {
         return nullptr;
       }
       // build expression sequence
-      then_node = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                                   col_num, tok_sep,
+      then_node = llvm::make_unique<BinaryExprAST>(line_num,
+                                                   col_num,
+                                                   tok_sep,
                                                    std::move(then_node),
                                                    std::move(next_expr));
     }
@@ -606,14 +611,16 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
         tokenizer_.consume();
         continue;
       }
+      size_t line_num = tokenizer_.line_number();
       size_t col_num = tokenizer_.column();
       auto next_expr = parse_expression();
       if (!next_expr) {
         return nullptr;
       }
       // build expression sequence
-      else_node = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                                   col_num, tok_sep,
+      else_node = llvm::make_unique<BinaryExprAST>(line_num,
+                                                   col_num,
+                                                   tok_sep,
                                                    std::move(else_node),
                                                    std::move(next_expr));
     }
@@ -775,6 +782,8 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
       return LHS;
     }
 
+    size_t line_num = tokenizer_.line_number();
+    size_t col_num = tokenizer_.column();
     // Okay, we know this is a binop.
     Token BinOp = tokenizer_.peak();
     tokenizer_.consume(); // eat binop
@@ -807,15 +816,15 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
       std::vector<std::unique_ptr<ExprAST>> args;
       args.push_back(std::move(LHS));
       args.push_back(std::move(RHS));
-      LHS = llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
-                                                       tokenizer_.column(),
+      LHS = llvm::make_unique<ValueConstructorExprAST>(line_num,
+                                                       col_num,
                                                        "Cons",
                                                        std::move(args));
     }
     else {
       // merge LHS/RHS.
-      LHS = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                             tokenizer_.column(), BinOp,
+      LHS = llvm::make_unique<BinaryExprAST>(line_num,
+                                             col_num, BinOp,
                                              std::move(LHS), std::move(RHS));
     }
   }

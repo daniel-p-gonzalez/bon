@@ -7,37 +7,37 @@ L*----------------------------------------------------------------------------*/
 
 namespace bon {
 
-// floating point number
+// NumberExprAST
 void DebugASTPass::process(NumberExprAST* node) {
   std::cout << "got a float" << std::endl;
 }
 
-// integer number
+// IntegerExprAST
 void DebugASTPass::process(IntegerExprAST* node) {
   std::cout << "got an int" << std::endl;
 }
 
-// string
+// StringExprAST
 void DebugASTPass::process(StringExprAST* node) {
   std::cout << "got a string" << std::endl;
 }
 
-// boolean
+// BoolExprAST
 void DebugASTPass::process(BoolExprAST* node) {
   std::cout << "got a bool" << std::endl;
 }
 
-// unit ()
+// UnitExprAST
 void DebugASTPass::process(UnitExprAST* node) {
   std::cout << "got a unit" << std::endl;
 }
 
-// variable
+// VariableExprAST
 void DebugASTPass::process(VariableExprAST* node) {
   std::cout << "got a variable" << std::endl;
 }
 
-// value constructor
+// ValueConstructorExprAST
 void DebugASTPass::process(ValueConstructorExprAST* node) {
   std::cout << "got a value constructor" << std::endl;
   for (auto &arg : node->tcon_args_) {
@@ -45,20 +45,20 @@ void DebugASTPass::process(ValueConstructorExprAST* node) {
   }
 }
 
-// unary op
+// UnaryExprAST
 void DebugASTPass::process(UnaryExprAST* node) {
   std::cout << "got a unary" << std::endl;
   node->Operand->run_pass(this);
 }
 
-// binop
+// BinaryExprAST
 void DebugASTPass::process(BinaryExprAST* node) {
   std::cout << "got a binary op" << std::endl;
   node->LHS->run_pass(this);
   node->RHS->run_pass(this);
 }
 
-// if expression
+// IfExprAST
 void DebugASTPass::process(IfExprAST* node) {
   std::cout << "got a if" << std::endl;
   node->Cond->run_pass(this);
@@ -66,14 +66,14 @@ void DebugASTPass::process(IfExprAST* node) {
   node->Else->run_pass(this);
 }
 
-// match case
+// MatchCaseExprAST
 void DebugASTPass::process(MatchCaseExprAST* node) {
   std::cout << "got a match case" << std::endl;
   node->condition_->run_pass(this);
   node->body_->run_pass(this);
 }
 
-// match
+// MatchExprAST
 void DebugASTPass::process(MatchExprAST* node) {
   std::cout << "got a match expression" << std::endl;
   node->pattern_->run_pass(this);
@@ -82,7 +82,7 @@ void DebugASTPass::process(MatchExprAST* node) {
   }
 }
 
-// function call
+// CallExprAST
 void DebugASTPass::process(CallExprAST* node) {
   std::cout << "got a call" << std::endl;
   for (auto &arg : node->Args) {
@@ -90,12 +90,12 @@ void DebugASTPass::process(CallExprAST* node) {
   }
 }
 
-// prototype
+// PrototypeAST
 void DebugASTPass::process(PrototypeAST* node) {
   std::cout << "got a proto" << std::endl;
 }
 
-// function body
+// FunctionAST
 void DebugASTPass::process(FunctionAST* node) {
   std::cout << "got a function" << std::endl;
   node->Body->run_pass(this);
@@ -104,17 +104,17 @@ void DebugASTPass::process(FunctionAST* node) {
   }
 }
 
-// type definition
+// TypeAST
 void DebugASTPass::process(TypeAST* node) {
   std::cout << "got a type" << std::endl;
 }
 
-// typeclass definition
+// TypeclassAST
 void DebugASTPass::process(TypeclassAST* node) {
   std::cout << "got a typeclass" << std::endl;
 }
 
-// typeclass implementation
+// TypeclassImplAST
 void DebugASTPass::process(TypeclassImplAST* node) {
   std::cout << "got a typeclass impl" << std::endl;
 }

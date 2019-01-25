@@ -3,6 +3,32 @@ type list<a>
   Cons(a, list)
 end
 
+
+#def copy_list(*dest, src)
+#    match src
+#        [] => dest
+#        [item] => copy(item) :: dest
+#        hd :: tl => copy_list(copy(hd) :: dest, tl)
+#    end
+#end
+#
+#impl Copy<list>
+#  def copy(x:list) -> list
+#    new_list = new []
+#    copy_list(*new_list, x)
+#  end
+#end
+#
+#
+#impl Concat<list>
+#  def operator++(lhs:list, rhs:list) -> list
+#    match lhs
+#      [] => copy(rhs)
+#      hd :: tl => new hd :: (tl ++ rhs)
+#    end
+#  end
+#end
+
 impl Concat<list>
   def operator++(lhs:list, rhs:list) -> list
     match lhs
@@ -11,6 +37,7 @@ impl Concat<list>
     end
   end
 end
+
 
 def list_to_string_aux(lst)
     match lst
