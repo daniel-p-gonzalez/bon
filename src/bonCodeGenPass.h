@@ -143,6 +143,8 @@ private:
 
   // free memory associated with constructed object
   void free_obj(Value* obj_ptr, bool is_child_obj);
+  std::map<std::string, Value*> tracked_allocs_;
+  std::map<Value*, TypeVariable*> alloc_types_;
   // we need a way to retrieve the output of the last instruction
   // so we cache the result to use as a return value
   void returns(ExprAST* node, Value* value);

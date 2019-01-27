@@ -215,7 +215,7 @@ bool run_codegen() {
       init_module_and_passes();
 
       // search the JIT for the top-level function we just generated
-      auto func_symbol = state_.JIT->findSymbol("top-level");
+      auto func_symbol = state_.JIT->findSymbol("top-level = () -> ()");
       assert(func_symbol && "Function not found");
 
       // get the symbol's address and cast it to the right type (takes no

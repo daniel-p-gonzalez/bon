@@ -146,6 +146,8 @@ Token Tokenizer::next_token() {
       return tok_import;
     if (identifier_ == "def")
       return tok_def;
+    if (identifier_ == "new")
+      return tok_new;
     if (identifier_ == "class")
       return tok_class;
     if (identifier_ == "impl")
@@ -422,6 +424,8 @@ std::string Tokenizer::token_type(Token token) {
       return "<unindent>";
     case tok_def:
       return "'def'";
+    case tok_new:
+      return "'new'";
     case tok_class:
       return "'class'";
     case tok_impl:

@@ -1,0 +1,62 @@
+class Object<T>
+  def delete(self:T) -> ();
+end
+
+type custom_number
+  One
+  Two
+  Many
+end
+
+impl Object<list>
+  def delete(self:list) -> ()
+    print("Deleting list:")
+    print_list(self)
+  end
+end
+
+impl Object<custom_number>
+  def delete(self:custom_number) -> ()
+    print("Deleting custom_number:")
+    match self
+      One => print("One")
+      Two => print("Two")
+      Many => print("Many")
+    end
+  end
+end
+
+def foo()
+  x = [5,3,2,1,23,3,3,3,3]
+  if 10 > 5
+    [1]
+  else
+    x
+  end
+end
+
+def bar()
+  x = new Some(5)
+  x
+end
+
+def baz()
+  y = bar()
+  match y
+    Some(a) => print(a)
+    None => print("None")
+  end
+end
+
+def foobar(x, y)
+  j = new One
+  x + y
+end
+
+def main()
+  x = foo()
+  baz()
+  print(foobar(5,10))
+end
+
+main()

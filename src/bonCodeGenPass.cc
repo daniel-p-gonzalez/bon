@@ -172,24 +172,29 @@ void CodeGenPass::process(ValueConstructorExprAST* node) {
   AllocSize = ConstantExpr::getTruncOrBitCast(AllocSize, ITy);
   // TODO: only values that escape the function (i.e. return values) need
   //       to be heap allocated
-  Instruction* val_alloc = CallInst::CreateMalloc(entry_block,
-                                                  ITy, structReg, AllocSize,
-                                                  nullptr, nullptr, "mallocVal");
+  Instruction* val_alloc = nullptr;
+  if (node->heap_alloc_) {
+    val_alloc = CallInst::CreateMalloc(entry_block,
+                                                    ITy, structReg, AllocSize,
+                                                    nullptr, nullptr, "mallocVal");
 
-  if (!in_constructor) {
-    free_list_.insert((Value*)val_alloc);
+    if (!in_constructor) {
+      free_list_.insert((Value*)val_alloc);
+    }
+    else {
+      child_mem_list_.insert((Value*)val_alloc);
+    }
+
+    state_.builder.Insert(val_alloc, node->constructor_);
   }
   else {
-    child_mem_list_.insert((Value*)val_alloc);
+    val_alloc = state_.builder.CreateAlloca(structReg, AllocSize, "allocVal");
   }
 
   MDNode* metadata = MDNode::get(state_.llvm_context,
-                                 MDString::get(state_.llvm_context,
-                                 logger.get_context()));
+                                MDString::get(state_.llvm_context,
+                                logger.get_context()));
   val_alloc->setMetadata("context", metadata);
-
-  state_.builder.Insert(val_alloc, node->constructor_);
-
 
   Value* ArgValuePtr =
         state_.builder.CreateStructGEP(structReg, val_alloc, 0,
@@ -325,8 +330,8 @@ void CodeGenPass::process(BinaryExprAST* node) {
                                          node->RHS.get());
       node->RHS->pop_type_environment();
 
-      // TODO: remove node->RHS->name from named_values if present
-      //       to transfer ownership
+      // remove node->RHS->name from named_values if present
+      //  to transfer ownership
       if (state_.named_values.find(node->RHS->getName())
           != state_.named_values.end()) {
         state_.named_values.erase(node->RHS->getName());
@@ -342,6 +347,14 @@ void CodeGenPass::process(BinaryExprAST* node) {
       variable = alloca;
     }
 
+    // keep track of the allocation bound to this variable
+    tracked_allocs_[node->LHS->getName()] = r_value;
+    if (tracked_allocs_.find(node->RHS->getName())
+        != tracked_allocs_.end()) {
+      // transferred ownership, so remove reference to old variable
+      tracked_allocs_.erase(node->RHS->getName());
+    }
+    alloc_types_[r_value] = node->RHS->type_var_;
     // Store the initial value into the alloca.
     state_.builder.CreateStore(r_value, variable);
     // named_values_[LHS->getName()] = r_value;
@@ -805,7 +818,14 @@ void CodeGenPass::process(CallExprAST* node) {
     }
   }
 
-  returns (node, state_.builder.CreateCall(CalleeF, arg_values, "calltmp"));
+  auto ret_val = state_.builder.CreateCall(CalleeF, arg_values, "calltmp");
+  if (ret_val->getType()->isPointerTy()) {
+    // ret_val->dump();
+    // ret_val->getType()->dump();
+    // ret_val->getType()->getArrayElementType()->dump();
+    free_list_.insert(ret_val);
+  }
+  returns (node, ret_val);
 }
 
 // PrototypeAST
@@ -983,22 +1003,40 @@ void CodeGenPass::process(FunctionAST* node) {
     returns (nullptr, func_result);
     return;
   }
-  // else must be an anonymous expression, or unused function
-  if (node->Proto->getName() != "top-level") {
+  // else must be a builtin, or unused function
+  static std::set<std::string> builtins = {"top-level", "delete"};
+  if (builtins.count(node->Proto->getName()) == 0) {
     // not an error, the function is simply not called anywhere
     returns (nullptr, nullptr);
     return;
   }
 
-  // transfer ownership of the prototype to the state_.function_protos map,
-  // but keep a reference to it for use below
+  std::stringstream type_name;
+  type_name << node->Proto->getName()
+            << " = "
+            << node->type_var()->get_name();
+  std::string mangled_name = type_name.str();
+
   auto &protoAST = *node->Proto;
-  state_.function_protos[node->Proto->getName()] = std::move(node->Proto);
-  Function *function = get_function(protoAST.getName());
+  state_.function_protos[mangled_name] = copy_proto(protoAST, mangled_name);
+  Function* function = get_function(mangled_name);
   if (!function) {
+    std::ostringstream msg;
+    logger.error("codegen error", msg << "could't find function matching "
+                                      << mangled_name);
     returns (nullptr, nullptr);
     return;
   }
+
+  // // transfer ownership of the prototype to the state_.function_protos map,
+  // // but keep a reference to it for use below
+  // auto &protoAST = *node->Proto;
+  // state_.function_protos[node->Proto->getName()] = std::move(node->Proto);
+  // Function *function = get_function(protoAST.getName());
+  // if (!function) {
+  //   returns (nullptr, nullptr);
+  //   return;
+  // }
 
   // create entry block for the function
   BasicBlock *BB = BasicBlock::Create(state_.llvm_context, "entry", function);
@@ -1007,6 +1045,20 @@ void CodeGenPass::process(FunctionAST* node) {
   // store the function arguments in this map
   // TODO: this should be a stack of scopes
   state_.named_values.clear();
+  for (auto &arg : function->args()) {
+    // Create an alloca for this variable.
+    auto tvar = node->param_name_to_tvar_[arg.getName()];
+    AllocaInst* alloca = create_entry_block_alloca(function, arg.getName(),
+                                                    tvar, nullptr, true);
+
+    // Store the initial value into the alloca.
+    state_.builder.CreateStore(&arg, alloca);
+
+    // Add arguments to variable symbol table.
+    state_.named_values[arg.getName()] = alloca;
+    borrowed_list_.insert(alloca);
+    // named_values_[arg.getName()] = &arg;
+  }
 
   node->Body->run_pass(this);
   if (Value* return_val = result()) {
@@ -1089,11 +1141,52 @@ void CodeGenPass::free_obj(Value* obj_ptr, bool is_child_obj) {
     return;
   }
 
+  if (alloc_types_.find(obj_ptr) != alloc_types_.end()) {
+    auto obj_type = resolve_variable(alloc_types_[obj_ptr]);
+    if (obj_type->type_operator_) {
+      auto variant_type =
+        get_type_from_constructor(obj_type->type_operator_->type_constructor_);
+      if (variant_type) {
+        obj_type = variant_type;
+      }
+    }
+
+    std::vector<TypeVariable*> arg_types;
+    arg_types.push_back(obj_type);
+    TypeVariable* func_type_var = build_function_type(arg_types,
+                                                      bon::UnitType);
+
+    auto func = state_.get_typeclass_impl_function_node("delete",
+                                                        func_type_var);
+    if (func) {
+      func_type_var = func->type_var();
+
+      std::stringstream type_name;
+      type_name << "delete" << " = " << func_type_var->get_name();
+      std::string mangled_name = type_name.str();
+      Function* delete_func = state_.get_typeclass_impl_function("delete", mangled_name);
+      if (delete_func) {
+        state_.builder.CreateCall(delete_func, obj_ptr, "delete");
+      }
+      else {
+        delete_func = get_function(mangled_name);
+        if (delete_func) {
+          state_.builder.CreateCall(delete_func, obj_ptr, "delete");
+        }
+      }
+    }
+  }
+
   bb = state_.builder.GetInsertBlock();
   auto struct_type = obj_ptr->getType();
   assert(struct_type->isArrayTy());
   struct_type = struct_type->getArrayElementType();
 
+  // recursively free any pointers within object
+  // TODO: this only works if structure is statically known,
+  //       so this doesn't work for recursive types like list.
+  //       a recursive object needs to know how to free itself,
+  //       so we need to generate code for that
   for (size_t i = 0; i < struct_type->getStructNumElements(); ++i) {
     if (struct_type->getStructElementType(i)->isPointerTy()
         &&
@@ -1136,10 +1229,19 @@ void CodeGenPass::returns(ExprAST* node, Value* value) {
     bon::logger.set_line_column(node->line_num_, node->column_num_);
     for (auto& ptr : free_list_) {
       if (ptr != value) {
-        free_obj(ptr, false);
+        auto var = dynamic_cast<VariableExprAST*>(node);
+        if (var != nullptr) {
+          if (ptr != tracked_allocs_[var->Name]) {
+            free_obj(ptr, false);
+          }
+        }
+        else {
+          free_obj(ptr, false);
+        }
       }
     }
   }
+  last_value_ = value;
 }
 
 // returns the cached return value

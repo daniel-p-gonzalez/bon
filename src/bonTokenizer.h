@@ -20,6 +20,7 @@ enum Token {
   tok_extern,
   tok_return,
   tok_import,
+  tok_new,
 
   // primary
   tok_identifier,

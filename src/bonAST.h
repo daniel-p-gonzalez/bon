@@ -118,10 +118,12 @@ struct ValueConstructorExprAST : public ExprAST {
   std::string constructor_;
   std::vector<ExprASTPtr> tcon_args_;
   TypeEnv type_env_;
+  bool heap_alloc_;
 
   ValueConstructorExprAST(size_t line_num, size_t column_num,
                           const std::string &constructor,
-                          std::vector<ExprASTPtr> tcon_args);
+                          std::vector<ExprASTPtr> tcon_args,
+                          bool heap_alloc);
   void run_pass(CompilerPass* pass) override;
   void push_type_environment() override;
   void pop_type_environment() override;

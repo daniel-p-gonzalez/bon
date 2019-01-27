@@ -62,9 +62,10 @@ ValueConstructorExprAST::ValueConstructorExprAST(
                                 size_t line_num,
                                 size_t column_num,
                                 const std::string &constructor,
-                                std::vector<std::unique_ptr<ExprAST>> tcon_args)
+                                std::vector<std::unique_ptr<ExprAST>> tcon_args,
+                                bool heap_alloc)
   : ExprAST(line_num, column_num), constructor_(constructor),
-    tcon_args_(std::move(tcon_args)) {
+    tcon_args_(std::move(tcon_args)), heap_alloc_(heap_alloc) {
   type_var_ = new TypeVariable();
 }
 

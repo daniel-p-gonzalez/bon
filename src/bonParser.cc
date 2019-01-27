@@ -268,9 +268,16 @@ std::unique_ptr<ExprAST> Parser::parse_paren_expr() {
   return expr_node;
 }
 
-// Variant value constructor
+// object constructor
 // e.g. Some(5)
 std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
+  bool heap_alloc = false;
+  if (tokenizer_.peak() == tok_new) {
+    heap_alloc = true;
+    // eat new
+    tokenizer_.consume();
+  }
+
   std::string constructor_name = tokenizer_.identifier();
 
   size_t col_num = tokenizer_.column();
@@ -322,7 +329,8 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
 
   return llvm::make_unique<ValueConstructorExprAST>(line_num, col_num,
                                                     constructor_name,
-                                                    std::move(args));
+                                                    std::move(args),
+                                                    heap_alloc);
 }
 
 // variable reference, or function call
@@ -659,7 +667,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
       llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                  tokenizer_.column(),
                                                  "Empty",
-                                                 std::move(empty_args));
+                                                 std::move(empty_args),
+                                                 true);
     // construct Cons
     std::vector<std::unique_ptr<ExprAST>> cons_args;
     cons_args.push_back(std::move(head));
@@ -667,7 +676,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
     return llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                       tokenizer_.column(),
                                                       "Cons",
-                                                      std::move(cons_args));
+                                                      std::move(cons_args),
+                                                      true);
   }
 
   if (tokenizer_.peak() != tok_comma) {
@@ -690,7 +700,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
     return llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                       tokenizer_.column(),
                                                       "Cons",
-                                                      std::move(cons_args));
+                                                      std::move(cons_args),
+                                                      true);
   }
   else {
     return nullptr;
@@ -718,6 +729,7 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
     case bon::tok_true:
     case bon::tok_false:
       return parse_bool_expr();
+    case bon::tok_new:
     case bon::tok_typeconstructor:
       return parse_value_constructor_expr();
     case bon::tok_identifier:
@@ -819,7 +831,8 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
       LHS = llvm::make_unique<ValueConstructorExprAST>(line_num,
                                                        col_num,
                                                        "Cons",
-                                                       std::move(args));
+                                                       std::move(args),
+                                                       true);
     }
     else {
       // merge LHS/RHS.
