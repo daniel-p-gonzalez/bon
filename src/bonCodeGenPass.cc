@@ -1159,6 +1159,9 @@ void CodeGenPass::process(FunctionAST* node) {
   push_environment(node->type_env_);
   AutoScope pop_env([this, node]{
       node->type_env_ = pop_environment();
+      // TODO: this can get stomped on when processing dependencies
+      //       causing a memory leak in some cases
+      free_list_.clear();
     });
 
   if (state_.function_envs.find(node->Proto->getName()) !=
@@ -1311,7 +1314,7 @@ void CodeGenPass::process(FunctionAST* node) {
     return;
   }
   // else must be a builtin, or unused function
-  static std::set<std::string> builtins = {"top-level", "delete"};
+  static std::set<std::string> builtins = {"top-level"};
   if (builtins.count(node->Proto->getName()) == 0) {
     // not an error, the function is simply not called anywhere
     returns (nullptr, nullptr);
@@ -1617,7 +1620,6 @@ void CodeGenPass::returns(ExprAST* node, Value* value) {
         }
       }
     }
-    free_list_.clear();
   }
   last_value_ = value;
 }

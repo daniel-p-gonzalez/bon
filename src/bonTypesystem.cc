@@ -458,10 +458,15 @@ bool _type_operators_match(TypeOperator* lhs, TypeOperator* rhs,
         auto rhtype = resolve_variable(rhs->types_[i], false);
         if (lhtype->type_operator_ != nullptr
             && rhtype->type_operator_ != nullptr) {
-            return _type_operators_match(lhtype->type_operator_,
-                                        rhtype->type_operator_, occurs);
+            bool ops_match = _type_operators_match(lhtype->type_operator_,
+                                                   rhtype->type_operator_,
+                                                   occurs);
+            return ops_match;
         }
-        if (lhtype != rhtype) {
+        else if (lhtype->type_name_ != "") {
+            return lhtype->type_name_ == rhtype->type_name_;
+        }
+        else if (lhtype != rhtype) {
             return false;
         }
     }
