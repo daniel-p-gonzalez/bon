@@ -1,0 +1,60 @@
+cdef malloc(int) -> pointer
+cdef memcpy(pointer, pointer, int) -> ()
+cdef free(pointer) -> ()
+cdef null_ptr() -> pointer
+
+type vec
+    Vec(size:int, capacity:int, data:pointer)
+end
+
+def vec()
+    v = new Vec(0, 0, null_ptr())
+    return v
+end
+
+def push(v:vec, item)
+  if v.size+1 > v.capacity
+    old_size = sizeof(item) * v.capacity
+    new_size = if v.capacity == 0 then sizeof(item) * 2 else old_size * 2
+    new_data = malloc(new_size)
+    memcpy(new_data, v.data, old_size)
+    free(v.data)
+    v.data = new_data
+    v.capacity = if v.capacity == 0 then 2 else v.capacity * 2
+    ()
+  else
+    ()
+  end
+  ptr_offset(v.data, v.size) = item
+  v.size = v.size + 1
+end
+
+def at(v:vec, index:int)
+  if index < v.size
+    new Some(ptr_offset(v.data, index))
+  else
+    new None
+  end
+end
+
+def unsafe_at(v:vec, index:int)
+  ptr_offset(v.data, index)
+end
+
+def swap(v:vec, i:int, j:int)
+  tmp = ptr_offset(v.data, i)
+  ptr_offset(v.data, i) = ptr_offset(v.data, j)
+  ptr_offset(v.data, j) = tmp
+end
+
+def set(v:vec, i:int, item)
+  if i < v.size
+    ptr_offset(v.data, i) = item
+  else
+    item
+  end
+end
+
+def len(v:vec) -> int
+  v.size
+end

@@ -25,9 +25,9 @@ end
 def main()
   print("Test of typeclasses:")
   p = Point2D(2.0, 1.5)
-  print(norm(p))
+  print(p.norm())
   p2 = Point3D(2.0, 1.5, 3.0)
-  print(norm(p2))
+  print(p2.norm())
 end
 
 main()

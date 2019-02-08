@@ -21,7 +21,7 @@ add_executable(bon bonTokenizer.cc bonParser.cc bonAST.cc bonScopeAnalysisPass.c
 
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
-llvm_map_components_to_libnames(llvm_libs support core irreader mcjit native scalaropts vectorize)
+llvm_map_components_to_libnames(llvm_libs support core irreader mcjit native scalaropts vectorize ipo)
 
 # Link against LLVM libraries
 target_link_libraries(bon ${llvm_libs})

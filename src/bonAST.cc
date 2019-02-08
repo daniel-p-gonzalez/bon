@@ -79,13 +79,19 @@ BinaryExprAST::BinaryExprAST(size_t line_num, size_t column_num, Token Op,
                              std::unique_ptr<ExprAST> LHS,
                              std::unique_ptr<ExprAST> RHS)
   : ExprAST(line_num, column_num), Op(Op),
-    LHS(std::move(LHS)), RHS(std::move(RHS)) {
+    LHS(std::move(LHS)), RHS(std::move(RHS)), is_lvalue(false) {
   type_var_ = new TypeVariable();
   switch (Op) {
     case tok_add:
     case tok_sub:
     case tok_mul:
     case tok_div:
+    case tok_rem:
+    case tok_lshift:
+    case tok_rshift:
+    case tok_bt_or:
+    case tok_bt_xor:
+    case tok_bt_and:
     case tok_assign:
     case tok_dot:
     case tok_concat:
@@ -95,6 +101,8 @@ BinaryExprAST::BinaryExprAST(size_t line_num, size_t column_num, Token Op,
     case tok_gt:
     case tok_lt:
     case tok_eq:
+    case tok_and:
+    case tok_or:
     case tok_gteq:
     case tok_lteq:
         unify(type_var_, BoolType);
@@ -105,12 +113,28 @@ BinaryExprAST::BinaryExprAST(size_t line_num, size_t column_num, Token Op,
   }
 }
 
+void BinaryExprAST::set_as_lvalue() {
+  is_lvalue = true;
+  // if (Op == tok_dot) {
+
+  // }
+}
+
+
 IfExprAST::IfExprAST(size_t line_num, size_t column_num,
                      std::unique_ptr<ExprAST> Cond,
                      std::unique_ptr<ExprAST> Then,
                      std::unique_ptr<ExprAST> Else)
   : ExprAST(line_num, column_num), Cond(std::move(Cond)), Then(std::move(Then)),
     Else(std::move(Else)) {
+  type_var_ = new TypeVariable();
+}
+
+WhileExprAST::WhileExprAST(size_t line_num, size_t column_num,
+                     std::unique_ptr<ExprAST> condition,
+                     std::unique_ptr<ExprAST> body)
+  : ExprAST(line_num, column_num), condition_(std::move(condition)),
+    body_(std::move(body)) {
   type_var_ = new TypeVariable();
 }
 
@@ -138,13 +162,26 @@ CallExprAST::CallExprAST(size_t line_num, size_t column_num,
   type_var_ = new TypeVariable();
 }
 
+SizeofExprAST::SizeofExprAST(size_t line_num, size_t column_num, ExprASTPtr arg)
+  : ExprAST(line_num, column_num), arg_(std::move(arg)) {
+  type_var_ = IntType;
+}
+
+PtrOffsetExprAST::PtrOffsetExprAST(size_t line_num, size_t column_num,
+                                   ExprASTPtr arg, ExprASTPtr offset)
+  : ExprAST(line_num, column_num), arg_(std::move(arg)),
+    offset_(std::move(offset)), is_lvalue(false) {
+  type_var_ = new TypeVariable();
+}
+
 PrototypeAST::PrototypeAST(size_t line_num, size_t column_num,
                            const std::string &Name,
                            std::vector<std::string> Args,
                            std::vector<TypeVariable*> ArgTypes,
+                           std::vector<bool> arg_owned,
                            TypeVariable* ret_type)
-  : Name(Name), Args(std::move(Args)), ret_type_(ret_type),
-    line_num_(line_num), column_num_(column_num) {
+  : Name(Name), Args(std::move(Args)), arg_owned_(arg_owned),
+    ret_type_(ret_type), line_num_(line_num), column_num_(column_num) {
   type_var_ = build_function_type(ArgTypes, ret_type);
 }
 
@@ -154,9 +191,11 @@ const std::string& PrototypeAST::getName() const {
 
 FunctionAST::FunctionAST(size_t line_num, size_t column_num,
                          std::unique_ptr<PrototypeAST> Proto,
-                         std::unique_ptr<ExprAST> Body, ExprAST* last_expr)
+                         std::unique_ptr<ExprAST> Body, ExprAST* last_expr,
+                         std::vector<CallExprAST*> &dependencies)
   : Proto(std::move(Proto)), Body(std::move(Body)),
-    last_expr_(last_expr), line_num_(line_num), column_num_(column_num) {
+    last_expr_(last_expr), dependencies_(dependencies),
+    line_num_(line_num), column_num_(column_num) {
 }
 
 TypeVariable* FunctionAST::type_var() {
@@ -203,6 +242,14 @@ bool ExprAST::is_boxed() {
 
 bool UnitExprAST::is_boxed() {
   return false;
+}
+
+void BinaryExprAST::push_type_environment() {
+  push_environment(Env);
+}
+
+void BinaryExprAST::pop_type_environment() {
+  pop_environment();
 }
 
 
@@ -270,6 +317,10 @@ void IfExprAST::run_pass(CompilerPass* pass) {
   pass->process(this);
 }
 
+void WhileExprAST::run_pass(CompilerPass* pass) {
+  pass->process(this);
+}
+
 void MatchCaseExprAST::run_pass(CompilerPass* pass) {
   pass->process(this);
 }
@@ -279,6 +330,14 @@ void MatchExprAST::run_pass(CompilerPass* pass) {
 }
 
 void CallExprAST::run_pass(CompilerPass* pass) {
+  pass->process(this);
+}
+
+void SizeofExprAST::run_pass(CompilerPass* pass) {
+  pass->process(this);
+}
+
+void PtrOffsetExprAST::run_pass(CompilerPass* pass) {
   pass->process(this);
 }
 

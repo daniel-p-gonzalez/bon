@@ -8,6 +8,19 @@ L*----------------------------------------------------------------------------*/
 #include <iomanip>
 #include <sstream>
 #include <cstring>
+#include <chrono>
+
+extern "C" int64_t get_time() {
+  using namespace std::chrono;
+  auto now = steady_clock::now();
+  auto now_ms = time_point_cast<microseconds>(now).time_since_epoch();
+  long value_ms = duration_cast<microseconds>(now_ms).count();
+  return value_ms;
+}
+
+extern "C" void* null_ptr() {
+  return nullptr;
+}
 
 extern "C" void print_string(char* str) {
   std::cout << str << std::endl;
@@ -32,6 +45,10 @@ extern "C" char* str_concat(char* str1, char* str2) {
 
 extern "C" bool str_eq(char* str1, char* str2) {
   return strcmp(str1, str2) == 0;
+}
+
+extern "C" int64_t str_cmp(char* str1, char* str2) {
+  return (int64_t)strcmp(str1, str2);
 }
 
 extern "C" char* int_to_string(int64_t val) {

@@ -20,10 +20,13 @@ public:
   virtual void process(UnaryExprAST* node) = 0;
   virtual void process(BinaryExprAST* node) = 0;
   virtual void process(IfExprAST* node) = 0;
+  virtual void process(WhileExprAST* node) = 0;
   virtual void process(MatchCaseExprAST* node) = 0;
   virtual void process(MatchExprAST* node) = 0;
   virtual void process(CallExprAST* node) = 0;
   virtual void process(PrototypeAST* node) = 0;
+  virtual void process(SizeofExprAST* node) = 0;
+  virtual void process(PtrOffsetExprAST* node) = 0;
   virtual void process(FunctionAST* node) = 0;
   virtual void process(TypeAST* node) = 0;
   virtual void process(TypeclassAST* node) = 0;

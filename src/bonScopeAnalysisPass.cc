@@ -54,13 +54,26 @@ void ScopeAnalysisPass::process(UnaryExprAST* node) {
 
 // BinaryExprAST
 void ScopeAnalysisPass::process(BinaryExprAST* node) {
-  node->RHS->run_pass(this);
+  auto binop = dynamic_cast<BinaryExprAST*>(node->RHS.get());
+  if (node->Op == tok_sep || binop) {
+    node->RHS->run_pass(this);
+  }
+  else {
+    node->ends_scope_ = true;
+  }
 }
 
 // IfExprAST
 void ScopeAnalysisPass::process(IfExprAST* node) {
   node->Then->run_pass(this);
-  node->Else->run_pass(this);
+  if (node->Else) {
+    node->Else->run_pass(this);
+  }
+}
+
+// WhileExprAST
+void ScopeAnalysisPass::process(WhileExprAST* node) {
+  node->ends_scope_ = true;
 }
 
 // MatchCaseExprAST
@@ -77,6 +90,16 @@ void ScopeAnalysisPass::process(MatchExprAST* node) {
 
 // CallExprAST
 void ScopeAnalysisPass::process(CallExprAST* node) {
+  node->ends_scope_ = true;
+}
+
+// SizeofExprAST
+void ScopeAnalysisPass::process(SizeofExprAST* node) {
+  node->ends_scope_ = true;
+}
+
+// PtrOffsetExprAST
+void ScopeAnalysisPass::process(PtrOffsetExprAST* node) {
   node->ends_scope_ = true;
 }
 

@@ -14,5 +14,15 @@ impl MultiDispatch<string, int>
   end
 end
 
-foo(5, 10.0)
-foo("Hello, World!", 10)
+def some_function(a, b)
+  foo(a,b)
+end
+
+def main() -> ()
+  some_function(5, 10.0)
+  some_function("Hello, World!", 10)
+
+  return ()
+end
+
+main()

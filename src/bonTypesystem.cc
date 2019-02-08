@@ -15,9 +15,44 @@ L*----------------------------------------------------------------------------*/
 
 namespace bon {
 
+struct EnvironmentStack {
+    std::vector<TypeEnv> stack;
+    EnvironmentStack() {
+        stack.push_back(TypeEnv());
+    }
+
+    void push(TypeEnv &env) {
+        stack.push_back(env);
+    }
+
+    TypeEnv pop() {
+        TypeEnv result = stack.back();
+        stack.pop_back();
+        return result;
+    }
+
+    TypeVariable* find(std::string key) {
+        for (int i = stack.size()-1; i >= 0; --i) {
+            auto result = stack[i].find(key);
+            if (result != stack[i].end()) {
+                return result->second;
+            }
+        }
+        return nullptr;
+    }
+
+    TypeVariable* end() {
+        return nullptr;
+    }
+
+    TypeVariable* &operator[](std::string key) {
+        return stack.back()[key];
+    }
+};
+
 static TypeNameGenerator s_type_name_gen;
 static std::vector<TypeVariable*> s_empty_types;
-static TypeEnv s_type_env;
+static EnvironmentStack s_type_env;
 static std::vector<TypeEnv> s_env_stack;
 // registry of user defined types
 static TypeEnv s_type_registry;
@@ -39,42 +74,68 @@ TypeVariable* BoolType =
 TypeVariable* UnitType =
                 new TypeVariable(new TypeOperator("()", s_empty_types));
 
+std::vector<TypeVariable*> s_ptr_elem_type = {new TypeVariable()};
+TypeVariable* PointerType =
+                new TypeVariable(new TypeOperator("Pointer", s_ptr_elem_type));
+
 void dump_environment() {
-    std::cout << "Environment state:" << std::endl;
-    for (size_t i = 0; i < s_env_stack.size(); ++i) {
-        std::cout << "Environment #" << i << ":" << std::endl;
-        for (auto &entry : s_env_stack[i]) {
-            std::cout << entry.first << std::endl;
-        }
-    }
-    std::cout << "Environment #" << s_env_stack.size() << ":" << std::endl;
-    for (auto &entry : s_type_env) {
-        std::cout << entry.first << std::endl;
-    }
+    // std::cout << "Environment state:" << std::endl;
+    // for (size_t i = 0; i < s_env_stack.size(); ++i) {
+    //     std::cout << "Environment #" << i << ":" << std::endl;
+    //     for (auto &entry : s_env_stack[i]) {
+    //         auto type = entry.second->get_root();
+    //         std::cout << entry.first << ":" << type->type_name_ << std::endl;
+    //     }
+    // }
+    // std::cout << "Environment #" << s_env_stack.size() << ":" << std::endl;
+    // for (auto &entry : s_type_env) {
+    //     auto type = entry.second->get_root();
+    //     std::cout << entry.first << ":" << type->type_name_ << std::endl;
+    // }
+}
+
+void reset_type_variables() {
+    // s_type_name_gen.reset();
+    // while (s_env_stack.size() > 0) {
+    //     s_env_stack.pop_back();
+    // }
+    // s_type_env.clear();
 }
 
 void push_environment(std::map<std::string, TypeVariable*> &env) {
-    // s_type_name_gen.reset();
-    s_env_stack.push_back(s_type_env);
-    for (auto &entry : env) {
-        s_type_env[entry.first] = entry.second;
-    }
-    // this doesn't overwrite:
-    // s_type_env.insert(env.begin(), env.end());
+    s_type_env.push(env);
+    // // s_type_name_gen.reset();
+    // s_env_stack.push_back(s_type_env);
+    // for (auto &entry : env) {
+    //     auto debug_env = s_type_env;
+    //     s_type_env[entry.first] = entry.second->get_root();
+    // }
+    // // this doesn't overwrite:
+    // // s_type_env.insert(env.begin(), env.end());
 
-    // s_type_env = env;
+    // // s_type_env = env;
 }
 
 TypeEnv pop_environment() {
-    TypeEnv env_copy = s_type_env;
-    if (s_env_stack.size() > 0){
-        s_type_env = s_env_stack.back();
-        s_env_stack.pop_back();
-    }
-    else {
-        s_type_env.clear();
-    }
-    return env_copy;
+    return s_type_env.pop();
+    // TypeEnv env_copy = s_type_env;
+    // if (s_env_stack.size() > 0) {
+    //     s_type_env = s_env_stack.back();
+    //     s_env_stack.pop_back();
+    // }
+    // else {
+    //     s_type_env.clear();
+    // }
+
+    // // for (auto &entry : env_copy) {
+    // //     auto debug_env = s_type_env;
+    // //     auto type = entry.second->get_root();
+    // //     if (is_concrete_type(type)) {
+    // //         s_type_env[entry.first] = type;
+    // //     }
+    // // }
+
+    // return env_copy;
 }
 
 void push_typeclass_environment(TypeEnv &env) {
@@ -197,10 +258,43 @@ void TypeVariable::set_type(TypeVariable* new_type) {
     // }
 }
 
+void _get_fresh_variable(TypeVariable* type_var,
+                         std::set<TypeVariable*> &occurs) {
+    // find root for type variable
+    type_var = type_var->get_root();
+    if (occurs.count(type_var)) {
+        return;
+    }
+    occurs.insert(type_var);
+    if (type_var->type_operator_ != nullptr) {
+        for (auto &type : type_var->type_operator_->types_) {
+            auto type_root = type->get_root();
+            std::string type_name = type_root->type_name_;
+            if (type_name != "") {
+                // type name may already exist in environment,
+                //  but we want a fresh one
+                auto new_var = new TypeVariable();
+                new_var->get_name();
+                s_type_env[type_name] = new_var;
+            }
+            else {
+                _get_fresh_variable(type_root, occurs);
+            }
+        }
+    }
+}
+
 // For generic function type support:
 //   get fresh variables in current environment to allow for
 //   substitution of free variables
 void get_fresh_variable(TypeVariable* type_var) {
+    std::set<TypeVariable*> occurs;
+    // std::cout << "get_fresh_variable:" << std::endl;
+    _get_fresh_variable(type_var, occurs);
+}
+
+TypeVariable* _gen_variable(TypeVariable* type_var,
+                            std::set<TypeVariable*> &occurs) {
     // find root for type variable
     type_var = type_var->get_root();
     if (type_var->type_operator_ != nullptr) {
@@ -212,8 +306,15 @@ void get_fresh_variable(TypeVariable* type_var) {
                 //  but we want a fresh one
                 s_type_env[type_name] = new TypeVariable();
             }
+            type = _gen_variable(type_root, occurs);
         }
     }
+    return type_var;
+}
+
+TypeVariable* gen_variable(TypeVariable* type_var) {
+    std::set<TypeVariable*> occurs;
+    return _gen_variable(type_var, occurs);
 }
 
 TypeVariable* resolve_variable(TypeVariable* type_var,
@@ -225,8 +326,23 @@ TypeVariable* resolve_variable(TypeVariable* type_var,
     if (type_name != "") {
         auto inst_type = s_type_env.find(type_name);
         if (inst_type != s_type_env.end()) {
-            // use type var from environment
-            type_var = inst_type->second->get_root();
+            while (type_name != "" && inst_type != s_type_env.end()) {
+                // use type var from environment
+                type_var = inst_type->get_root();
+                auto old_name = type_name;
+                type_name = type_var->type_name_;
+                if (type_name != "") {
+                    if (old_name == type_name) {
+                        bon::logger.error("internal error",
+                                          "unexpected cycle in type resolver");
+                        return type_var;
+                    }
+                    inst_type = s_type_env.find(type_name);
+                }
+                else {
+                    type_name = "";
+                }
+            }
         }
         else if (update_environment) {
             // allocate fresh variable and update environment
@@ -237,18 +353,33 @@ TypeVariable* resolve_variable(TypeVariable* type_var,
     return type_var;
 }
 
+bool is_primitive_type(TypeVariable* type_var) {
+    static std::set<std::string> primitives = {"int", "float", "string",
+                                               "bool", "()"};
+
+    if (!type_var->type_operator_) {
+        return false;
+    }
+
+    auto type_name = type_var->type_operator_->type_constructor_;
+    return primitives.count(type_name) > 0;
+}
+
 // Flattens a potentially long chain of variables
 TypeVariable* _flatten_variable(TypeVariable* type_var, TypeVariableSet &occurs,
                                 std::map<TypeVariable*,TypeVariable*> &remap) {
     auto variant_name = type_var->variant_name_;
+    type_var = resolve_variable(type_var, false);
+    if (is_primitive_type(type_var)) {
+        return type_var;
+    }
     TypeVariable* result = new TypeVariable();
-    type_var = resolve_variable(type_var);
     occurs.insert(type_var);
     remap[type_var] = result;
     if (type_var->type_operator_ != nullptr) {
         std::vector<TypeVariable*> flattened_types;
         for (auto &type : type_var->type_operator_->types_) {
-            auto type_root = resolve_variable(type);
+            auto type_root = resolve_variable(type, false);
             if (occurs.count(type_root) > 0) {
                 flattened_types.push_back(remap[type_root]);
             }
@@ -491,6 +622,24 @@ bool is_concrete_type(TypeVariable* type_var) {
     return _is_concrete_type(type_var, occurs);
 }
 
+bool is_pointer_type(TypeVariable* type_var) {
+    type_var = resolve_variable(type_var);
+    if (type_var->type_operator_) {
+        return type_var->type_operator_->type_constructor_ == "Pointer";
+    }
+    return false;
+}
+
+TypeVariable* get_type_of_pointer(TypeVariable* type_var) {
+    type_var = resolve_variable(type_var);
+    if (type_var->type_operator_ &&
+        type_var->type_operator_->types_.size() > 0) {
+        return type_var->type_operator_->types_[0];
+    }
+
+    return nullptr;
+}
+
 TypeVariable* build_function_type(std::vector<TypeVariable*> &param_types,
                                   TypeVariable* ret_type) {
     TypeVariable* in_types = nullptr;
@@ -653,6 +802,9 @@ TypeVariable* type_variable_from_identifier(std::string type_name) {
     }
     else if (type_name == "()") {
         return UnitType;
+    }
+    else if (type_name == "pointer") {
+        return PointerType;
     }
     else if (s_type_registry.find(type_name) != s_type_registry.end()) {
         return s_type_registry[type_name];

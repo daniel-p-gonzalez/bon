@@ -43,12 +43,20 @@ enum Token {
   tok_if,
   tok_then,
   tok_else,
+  tok_while,
+  tok_do,
 
   // binary ops
   tok_add,
   tok_sub,
   tok_mul,
   tok_div,
+  tok_rem,
+  tok_lshift,
+  tok_rshift,
+  tok_bt_or,
+  tok_bt_xor,
+  tok_bt_and,
   tok_gt,
   tok_lt,
   tok_eq,
@@ -58,6 +66,8 @@ enum Token {
   tok_pow,
   tok_cons,
   tok_assign,
+  tok_and,
+  tok_or,
 
   // separator i.e. ';'
   tok_sep,
@@ -71,6 +81,10 @@ enum Token {
   tok_typeconstructor,
   tok_class,
   tok_impl,
+
+  // builtin
+  tok_sizeof,
+  tok_ptr_offset,
 
   // objects
   tok_dot,
@@ -104,6 +118,7 @@ private:
   int last_char_;
   Token current_token_;
   bool at_line_start_;
+  bool skip_next_dedent_;
 
   int next_char();
   Token next_token();
@@ -128,6 +143,7 @@ public:
   Token consume();
   // check the type of the current token
   Token peak();
+  void skip_next_dedent();
 };
 
 } // namespace bon

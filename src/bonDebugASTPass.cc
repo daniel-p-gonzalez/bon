@@ -66,6 +66,13 @@ void DebugASTPass::process(IfExprAST* node) {
   node->Else->run_pass(this);
 }
 
+// WhileExprAST
+void DebugASTPass::process(WhileExprAST* node) {
+  std::cout << "got a while loop" << std::endl;
+  node->condition_->run_pass(this);
+  node->body_->run_pass(this);
+}
+
 // MatchCaseExprAST
 void DebugASTPass::process(MatchCaseExprAST* node) {
   std::cout << "got a match case" << std::endl;
@@ -88,6 +95,16 @@ void DebugASTPass::process(CallExprAST* node) {
   for (auto &arg : node->Args) {
     arg->run_pass(this);
   }
+}
+
+// SizeofExprAST
+void DebugASTPass::process(SizeofExprAST* node) {
+  std::cout << "got sizeof" << std::endl;
+}
+
+// PtrOffsetExprAST
+void DebugASTPass::process(PtrOffsetExprAST* node) {
+  std::cout << "got sizeof" << std::endl;
 }
 
 // PrototypeAST

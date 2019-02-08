@@ -28,9 +28,12 @@ public:
   void process(UnaryExprAST* node) override;
   void process(BinaryExprAST* node) override;
   void process(IfExprAST* node) override;
+  void process(WhileExprAST* node) override;
   void process(MatchCaseExprAST* node) override;
   void process(MatchExprAST* node) override;
   void process(CallExprAST* node) override;
+  void process(SizeofExprAST* node) override;
+  void process(PtrOffsetExprAST* node) override;
   void process(PrototypeAST* node) override;
   void process(FunctionAST* node) override;
   void process(TypeAST* node) override;
@@ -69,9 +72,12 @@ public:
   void process(UnaryExprAST* node) override;
   void process(BinaryExprAST* node) override;
   void process(IfExprAST* node) override;
+  void process(WhileExprAST* node) override;
   void process(MatchCaseExprAST* node) override;
   void process(MatchExprAST* node) override;
   void process(CallExprAST* node) override;
+  void process(SizeofExprAST* node) override;
+  void process(PtrOffsetExprAST* node) override;
   void process(PrototypeAST* node) override;
   void process(FunctionAST* node) override;
   void process(TypeAST* node) override;
@@ -91,6 +97,10 @@ private:
   // parameters are borrowed - don't free
   std::set<Value*> borrowed_list_;
   std::set<Value*> child_mem_list_;
+  // polymorphic destructors to generate
+  std::map<std::string, std::vector<TypeVariable*>> destructor_list_;
+  // if we're generating destructors, make sure not to recurse
+  bool in_destructor_;
   // inside codegen for a constructor?
   // needed for managing memory ownership
   bool in_constructor_;
@@ -122,6 +132,8 @@ private:
   CaseState pop_case();
 
   Function* get_function(std::string name);
+
+  TypeVariable* fn_type_from_call(CallExprAST* node);
 
   Type* get_value_type_dispatch(ExprAST* node);
   Type* get_value_type(TypeOperator* type_op, TypeVariable* type_var);

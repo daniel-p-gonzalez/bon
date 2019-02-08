@@ -7,11 +7,11 @@ end
 
 impl Eq<color>
   def operator==(a:color, b:color) -> bool
-    match Pair(a,b)
-      Pair(Cyan, Cyan) => true
-      Pair(Magenta, Magenta) => true
-      Pair(Yellow, Yellow) => true
-      Pair(Black, Black) => true
+    match (a,b)
+      (Cyan, Cyan) => true
+      (Magenta, Magenta) => true
+      (Yellow, Yellow) => true
+      (Black, Black) => true
       _ => false
     end
   end

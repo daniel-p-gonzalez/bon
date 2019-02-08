@@ -1,0 +1,78 @@
+impl Object<vec>
+  def delete(self:vec) -> ()
+    print("deleting vector with size: " ++
+          to_string(self.size) ++
+          " and capacity: " ++ to_string(self.capacity))
+  end
+end
+
+class Iterator<T>
+  def next(self:T);
+end
+
+type vec_iter
+  VecIter(v:vec, i:int)
+end
+
+impl Iterator<vec_iter>
+  def next(self:vec_iter)
+    self.i = self.i + 1
+    self.v.at(self.i-1)
+  end
+end
+
+def main()
+  v = vec()
+  v.push(5)
+  v.push(10)
+  v.push(15)
+  v.push(25)
+
+  iter = VecIter(v, 0)
+  keep_looping = true
+  while keep_looping
+    match iter.next()
+      Some(a) => print(a)
+      None =>
+        keep_looping = false
+        ()
+      end
+    end
+  end
+
+  i = 0
+  while i < v.len()
+    print(v.unsafe_at(i))
+    i = i + 1
+  end
+
+#  for x in v:
+#    print(x)
+#  end
+
+  match v.at(0)
+    Some(a) => print("v[0]: " ++ to_string(a))
+    None => print("v[0]: " ++ "index out of bounds")
+  end
+  match v.at(20)
+    Some(a) => print("v[20]: " ++ to_string(a))
+    None => print("v[20]: " ++ "index out of bounds")
+  end
+
+  v2 = vec()
+  v2.push("this")
+  v2.push("is")
+  v2.push("a")
+  v2.push("string")
+  v2.push("array")
+  v2.push(".")
+  v2.swap(0, 1)
+  v2.set(5, "?")
+  i = 0
+  while i < v2.len()
+    print(v2.unsafe_at(i))
+    i = i + 1
+  end
+end
+
+main()

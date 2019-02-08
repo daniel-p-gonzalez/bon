@@ -1,3 +1,6 @@
+# Example of automatic memory management
+# TODO: make this example clearer
+
 class Object<T>
   def delete(self:T) -> ();
 end
@@ -6,13 +9,6 @@ type custom_number
   One
   Two
   Many
-end
-
-impl Object<list>
-  def delete(self:list) -> ()
-    print("Deleting list:")
-    print_list(self)
-  end
 end
 
 impl Object<custom_number>
@@ -29,6 +25,7 @@ end
 def foo()
   x = [5,3,2,1,23,3,3,3,3]
   if 10 > 5
+    # x is freed here
     [1]
   else
     x
@@ -49,7 +46,10 @@ def baz()
 end
 
 def foobar(x, y)
+  # this will have delete called on it when function exits
   j = new One
+  # does not have delete called on it, as it's not a persistent object
+  k = Two
   x + y
 end
 

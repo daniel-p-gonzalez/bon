@@ -82,6 +82,7 @@ public:
 void push_environment(std::map<std::string, TypeVariable*> &env);
 std::map<std::string, TypeVariable*> pop_environment();
 void dump_environment();
+void reset_type_variables();
 
 void push_typeclass_environment(TypeEnv &env);
 TypeEnv pop_typeclass_environment();
@@ -96,6 +97,7 @@ TypeVariable* resolve_variable(TypeVariable* type_var,
                                bool update_environment=true);
 TypeVariable* flatten_variable(TypeVariable* type_var);
 void get_fresh_variable(TypeVariable* type_var);
+TypeVariable* gen_variable(TypeVariable* type_var);
 
 bool type_operators_match(TypeOperator* lhs, TypeOperator* rhs);
 //void unify_type_operators(TypeOperator* lhs, TypeOperator* rhs);
@@ -117,6 +119,8 @@ uint32_t get_constructor_field_index(std::string constructor,
 
 bool is_boxed_type(TypeVariable* type_var);
 bool is_concrete_type(TypeVariable* type_var);
+bool is_pointer_type(TypeVariable* type_var);
+TypeVariable* get_type_of_pointer(TypeVariable* type_var);
 
 TypeVariable* get_function_return_type(TypeVariable* func_type);
 std::vector<TypeVariable*> get_function_arg_types(TypeVariable* func_type);
@@ -127,5 +131,6 @@ extern TypeVariable* FloatType;
 extern TypeVariable* StringType;
 extern TypeVariable* BoolType;
 extern TypeVariable* UnitType;
+extern TypeVariable* PointerType;
 
 } // namespace bon

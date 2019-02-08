@@ -5,13 +5,18 @@
 L*----------------------------------------------------------------------------*/
 
 #include <cstdio>
+#include <unistd.h>
 #include <iostream>
 #include "utils.h"
 #include "bonLogger.h"
 
 std::string BON_STDLIB_PATH;
+int stdin_orig = -1;
 
 bool file_to_stdin(std::string filename) {
+  if (stdin_orig == -1) {
+    stdin_orig = dup(0);
+  }
   fflush(stdin);
   if (!freopen(filename.c_str(), "r", stdin)) {
     // try again within stdlib directory
@@ -23,4 +28,12 @@ bool file_to_stdin(std::string filename) {
     }
   }
   return true;
+}
+
+void restore_stdin() {
+  fflush(stdin);
+  fclose(stdin);
+  *stdin = *fdopen(stdin_orig, "r");
+  // close(stdin_orig);
+  // fflush(stdin);
 }

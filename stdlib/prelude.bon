@@ -1,3 +1,7 @@
+class Object<T>
+  def delete(self:T) -> ();
+end
+
 class Concat<T>
   def operator++(a:T, b:T) -> T;
 end
@@ -11,6 +15,13 @@ class Eq<T>
   def operator==(a:T, b:T) -> bool;
 end
 
+class Ord<T>
+  def operator>(a:T, b:T) -> bool;
+  def operator<(a:T, b:T) -> bool;
+  def operator>=(a:T, b:T) -> bool;
+  def operator<=(a:T, b:T) -> bool;
+end
+
 class Copy<T>
   def copy(x:T) -> T;
 end
@@ -19,8 +30,25 @@ type pair<a>
   Pair(a, a)
 end
 
+type tuple<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o>
+  Tuple3(a, b, c)
+  Tuple4(a, b, c, d)
+  Tuple5(a, b, c, d, e)
+  Tuple6(a, b, c, d, e, f)
+  Tuple7(a, b, c, d, e, f, g)
+  Tuple8(a, b, c, d, e, f, g, h)
+  Tuple9(a, b, c, d, e, f, g, h, i)
+  Tuple10(a, b, c, d, e, f, g, h, i, j)
+  Tuple11(a, b, c, d, e, f, g, h, i, j, k)
+  Tuple12(a, b, c, d, e, f, g, h, i, j, k, l)
+  Tuple13(a, b, c, d, e, f, g, h, i, j, k, l, m)
+  Tuple14(a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+  Tuple15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+end
+
 import string
 import option
 import math
 import list
 import bool
+import vector

@@ -39,6 +39,7 @@ struct ExprAST {
   virtual void run_pass(CompilerPass* pass) = 0;
 
   virtual bool is_boxed();
+  virtual void set_as_lvalue() {}
 
   virtual std::string getName();
   virtual void push_type_environment();
@@ -148,11 +149,16 @@ struct BinaryExprAST : public ExprAST {
   Token Op;
   ExprASTPtr LHS, RHS;
   bool inherit_child_type_;
+  bool is_lvalue;
   TypeEnv Env;
 
   BinaryExprAST(size_t line_num, size_t column_num, Token Op, ExprASTPtr LHS,
                 ExprASTPtr RHS);
   void run_pass(CompilerPass* pass) override;
+
+  void push_type_environment() override;
+  void pop_type_environment() override;
+  void set_as_lvalue() override;
 };
 typedef std::unique_ptr<BinaryExprAST> BinaryExprASTPtr;
 
@@ -165,6 +171,16 @@ struct IfExprAST : public ExprAST {
   void run_pass(CompilerPass* pass) override;
 };
 typedef std::unique_ptr<IfExprAST> IfExprASTPtr;
+
+// ast node for while loop
+struct WhileExprAST : public ExprAST {
+  ExprASTPtr condition_, body_;
+
+  WhileExprAST(size_t line_num, size_t column_num,
+            ExprASTPtr condition, ExprASTPtr body);
+  void run_pass(CompilerPass* pass) override;
+};
+typedef std::unique_ptr<WhileExprAST> WhileExprASTPtr;
 
 struct MatchCaseExprAST : public ExprAST {
   ExprASTPtr condition_, body_;
@@ -199,12 +215,40 @@ struct CallExprAST : public ExprAST {
 };
 typedef std::unique_ptr<CallExprAST> CallExprASTPtr;
 
+// ast node for sizeof builtin
+struct SizeofExprAST : public ExprAST {
+  ExprASTPtr arg_;
+
+  SizeofExprAST(size_t line_num, size_t column_num, ExprASTPtr arg);
+  void run_pass(CompilerPass* pass) override;
+};
+typedef std::unique_ptr<SizeofExprAST> SizeofExprASTPtr;
+
+// ast node for ptr_offset builtin
+struct PtrOffsetExprAST : public ExprAST {
+  ExprASTPtr arg_;
+  ExprASTPtr offset_;
+  bool is_lvalue;
+
+  PtrOffsetExprAST(size_t line_num, size_t column_num, ExprASTPtr arg,
+                   ExprASTPtr offset);
+  void run_pass(CompilerPass* pass) override;
+
+  void set_as_lvalue() override {
+    is_lvalue = true;
+  }
+};
+typedef std::unique_ptr<PtrOffsetExprAST> PtrOffsetExprASTPtr;
+
+
 // "prototype" for a function,
 // which captures its name, and its argument names (thus implicitly the number
 // of arguments the function takes)
 struct PrototypeAST {
   std::string Name;
   std::vector<std::string> Args;
+  // does arg[i] transfer ownership to the function
+  std::vector<bool> arg_owned_;
   TypeVariable* type_var_;
   TypeVariable* ret_type_;
   size_t line_num_;
@@ -213,6 +257,7 @@ struct PrototypeAST {
   PrototypeAST(size_t line_num, size_t column_num, const std::string &Name,
                std::vector<std::string> Args,
                std::vector<TypeVariable*> ArgTypes,
+               std::vector<bool> arg_owned,
                TypeVariable* ret_type);
   void run_pass(CompilerPass* pass);
   const std::string& getName() const;
@@ -224,6 +269,9 @@ struct FunctionAST {
   PrototypeASTPtr Proto;
   ExprASTPtr Body;
   std::vector<ExprAST*> Params;
+  // functions called from here which must be generated first
+  std::vector<CallExprAST*> dependencies_;
+  TypeEnv type_env_;
   TypeEnv param_name_to_tvar_;
 
   // typeclass that this function belongs to
@@ -234,7 +282,8 @@ struct FunctionAST {
   size_t column_num_;
 
   FunctionAST(size_t line_num, size_t column_num, PrototypeASTPtr Proto,
-              ExprASTPtr Body, ExprAST* last_expr);
+              ExprASTPtr Body, ExprAST* last_expr,
+              std::vector<CallExprAST*> &dependencies);
   void run_pass(CompilerPass* pass);
   TypeVariable* type_var();
 };

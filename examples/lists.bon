@@ -1,3 +1,5 @@
+# TODO: Remove and replace with vector examples.
+#       Automatic memory management breaks most linked list functionality.
 def list_match(x)
   match x
     [] => print("Found empty list")
@@ -17,4 +19,4 @@ list_match([1,2,3])
 list_match([20,25])
 list_match([10,5,1])
 
-print_list([1,2,3,4] ++ [5,6,7,8])
+#print_list([1,2,3,4] ++ [5,6,7,8])

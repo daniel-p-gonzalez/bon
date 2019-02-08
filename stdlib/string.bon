@@ -2,6 +2,7 @@ cdef print_string(str:string) -> ()
 cdef write_string(str:string) -> ()
 cdef str_concat(a:string, b:string) -> string
 cdef str_eq(str1:string, str2:string) -> bool
+cdef str_cmp(str1:string, str2:string) -> int
 
 impl Concat<string>
   def operator++(a:string, b:string) -> string
@@ -14,6 +15,25 @@ impl Eq<string>
     str_eq(a,b)
   end
 end
+
+impl Ord<string>
+  def operator>(a:string, b:string) -> bool
+    str_cmp(a,b) > 0
+  end
+
+  def operator<(a:string, b:string) -> bool
+    str_cmp(a,b) < 0
+  end
+
+  def operator>=(a:string, b:string) -> bool
+    str_cmp(a,b) >= 0
+  end
+
+  def operator<=(a:string, b:string) -> bool
+    str_cmp(a,b) <= 0
+  end
+end
+
 
 impl Print<string>
   def to_string(x:string) -> string

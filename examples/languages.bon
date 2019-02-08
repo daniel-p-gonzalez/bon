@@ -53,7 +53,7 @@ impl Print<language>
   end
 
   def to_string(lang:language) -> string
-    describe_language(lang)
+    lang.describe_language()
   end
 end
 
