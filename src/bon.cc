@@ -33,6 +33,7 @@ bool DUMP_ASM = false;
 bool VERBOSE_OUTPUT = false;
 int OPTIMIZATION_LEVEL = 3;
 
+std::vector<std::string> s_args;
 
 namespace bon {
 
@@ -279,6 +280,10 @@ enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL, REPL };
     std::cout << "Unknown option: "
               << std::string(opt->name,opt->namelen) << "\n";
     unknown_options = true;
+  }
+
+  for (int i = 0; i < parse.nonOptionsCount(); ++i) {
+    s_args.push_back(std::string(parse.nonOption(i)));
   }
 
   if (unknown_options) {

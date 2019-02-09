@@ -589,6 +589,15 @@ void CodeGenPass::process(BinaryExprAST* node) {
       returns (node, state_.builder.CreateICmpEQ(l_value, r_value, "cmptmp"));
       return;
     }
+  case tok_neq:
+    if (resolve_variable(node->LHS->type_var_) == FloatType) {
+      returns (node, state_.builder.CreateFCmpUNE(l_value, r_value, "cmptmp"));
+      return;
+    }
+    else if (resolve_variable(node->LHS->type_var_) == IntType) {
+      returns (node, state_.builder.CreateICmpNE(l_value, r_value, "cmptmp"));
+      return;
+    }
   default:
     break;
   }
@@ -1086,6 +1095,11 @@ void CodeGenPass::process(PrototypeAST* node) {
       storage_type = PointerType::get(storage_type, 0);
       arg_types.push_back(storage_type);
     }
+    else if (type == CPointerType) {
+      auto ptr_type = Type::getVoidTy(state_.llvm_context);
+      auto storage_type = PointerType::get(ptr_type, 0);
+      arg_types.push_back(storage_type);
+    }
     else if (auto arg_type = get_value_type(type, is_boxed_type(type))) {
       if (!arg_type->isPointerTy()) {
         arg_type = PointerType::get(arg_type, 0);
@@ -1124,6 +1138,11 @@ void CodeGenPass::process(PrototypeAST* node) {
       return_type = Type::getVoidTy(state_.llvm_context);
     }
     return_type = PointerType::get(return_type, 0);
+  }
+  else if (ret_type == CPointerType) {
+    auto ptr_type = Type::getVoidTy(state_.llvm_context);
+    auto storage_type = PointerType::get(ptr_type, 0);
+    return_type = storage_type;
   }
   else if (auto arg_type = get_value_type(ret_type, is_boxed_type(ret_type))) {
     if (!arg_type->isPointerTy()) {
@@ -1654,6 +1673,11 @@ Type* CodeGenPass::get_value_type(TypeVariable* type_var, bool ptr_type) {
       }
       return PointerType::get(ret_type, 0);
     }
+    else if (type_var == CPointerType) {
+      auto ptr_type = Type::getVoidTy(state_.llvm_context);
+      auto storage_type = PointerType::get(ptr_type, 0);
+      return storage_type;
+    }
     else if (auto val_type = get_value_type(tcon_operator, type_var)) {
       auto tname = type_var->get_name();
       // Type* val_type = state_.struct_map[tname];
@@ -1756,6 +1780,11 @@ AllocaInst* CodeGenPass::create_entry_block_alloca(Function* function,
     auto ptr_type = get_type_of_pointer(type_var);
     auto storage_type = get_value_type(ptr_type, is_boxed_type(ptr_type));
     storage_type = PointerType::get(storage_type, 0);
+    return TmpB.CreateAlloca(storage_type, 0, VarName.c_str());
+  }
+  else if (type_var == CPointerType) {
+    auto ptr_type = Type::getVoidTy(state_.llvm_context);
+    auto storage_type = PointerType::get(ptr_type, 0);
     return TmpB.CreateAlloca(storage_type, 0, VarName.c_str());
   }
   else if (var_expr) {

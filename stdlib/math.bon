@@ -35,6 +35,10 @@ impl Print<float>
   def print(x:float) -> ()
     print(float_to_string(x))
   end
+
+  def write(x:float) -> ()
+    write(float_to_string(x))
+  end
 end
 
 impl Print<int>
@@ -44,5 +48,9 @@ impl Print<int>
 
   def print(x:int) -> ()
     print(int_to_string(x))
+  end
+
+  def write(x:int) -> ()
+    write(int_to_string(x))
   end
 end

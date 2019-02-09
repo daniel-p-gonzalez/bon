@@ -101,6 +101,7 @@ BinaryExprAST::BinaryExprAST(size_t line_num, size_t column_num, Token Op,
     case tok_gt:
     case tok_lt:
     case tok_eq:
+    case tok_neq:
     case tok_and:
     case tok_or:
     case tok_gteq:

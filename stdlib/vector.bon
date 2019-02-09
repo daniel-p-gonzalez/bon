@@ -21,9 +21,6 @@ def push(v:vec, item)
     free(v.data)
     v.data = new_data
     v.capacity = if v.capacity == 0 then 2 else v.capacity * 2
-    ()
-  else
-    ()
   end
   ptr_offset(v.data, v.size) = item
   v.size = v.size + 1
@@ -47,11 +44,9 @@ def swap(v:vec, i:int, j:int)
   ptr_offset(v.data, j) = tmp
 end
 
-def set(v:vec, i:int, item)
+def set(v:vec, i:int, item) -> ()
   if i < v.size
     ptr_offset(v.data, i) = item
-  else
-    item
   end
 end
 

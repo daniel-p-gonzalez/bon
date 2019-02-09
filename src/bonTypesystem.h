@@ -132,5 +132,6 @@ extern TypeVariable* StringType;
 extern TypeVariable* BoolType;
 extern TypeVariable* UnitType;
 extern TypeVariable* PointerType;
+extern TypeVariable* CPointerType;
 
 } // namespace bon

@@ -26,10 +26,10 @@ def solve_quadratic(a, b, c)
     sd = sqrt(d)
     r1 = (-b + sd) / (2.0*a)
     r2 = (-b - sd) / (2.0*a)
-    print("Roots of 'x**2 - 4x + 3.9999999 = 0': " ++ to_string(r1) ++ ", " ++ to_string(r2))
+    print("Roots of 'x**2 - 4x + 3.9999999 = 0': " ++ str(r1) ++ ", " ++ str(r2))
 end
 
-print("Factorial of 15: " ++ to_string(factorial(15.0)))
+print("Factorial of 15: " ++ str(factorial(15.0)))
 # try running with `bon -O0 examples/num.bon` to disable tail call optimization
-print("Factorial of 1000000 (requires tail call optimization to avoid stack overflow): " ++ to_string(tail_factorial(1000000.0)))
+print("Factorial of 1000000 (requires tail call optimization to avoid stack overflow): " ++ str(tail_factorial(1000000.0)))
 solve_quadratic(1.0, -4.0, 3.9999999)

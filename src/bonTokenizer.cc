@@ -349,6 +349,15 @@ Token Tokenizer::next_token() {
     return tok_lt;
   }
 
+  if (last_char_ == '!') {
+    last_char_ = next_char();
+    if (last_char_ == '=') {
+      last_char_ = next_char();
+      return tok_neq;
+    }
+    return tok_negate;
+  }
+
   // double arrow '=>', or equality '=='
   if (last_char_ == '=') {
     last_char_ = next_char();
@@ -552,6 +561,10 @@ std::string Tokenizer::token_type(Token token) {
       return "'**'";
     case tok_eq:
       return "'=='";
+    case tok_neq:
+      return "'!='";
+    case tok_negate:
+      return "'!'";
     case tok_gt:
       return "'>'";
     case tok_lt:

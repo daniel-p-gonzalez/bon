@@ -1,9 +1,4 @@
 # Example of automatic memory management
-# TODO: make this example clearer
-
-class Object<T>
-  def delete(self:T) -> ();
-end
 
 type custom_number
   One
@@ -11,9 +6,8 @@ type custom_number
   Many
 end
 
-impl Object<custom_number>
-  def delete(self:custom_number) -> ()
-    print("Deleting custom_number:")
+impl Print<custom_number>
+  def print(self:custom_number) -> ()
     match self
       One => print("One")
       Two => print("Two")
@@ -22,41 +16,40 @@ impl Object<custom_number>
   end
 end
 
-def foo()
-  x = [5,3,2,1,23,3,3,3,3]
-  if 10 > 5
-    # x is freed here
-    [1]
-  else
-    x
+impl Object<custom_number>
+  def delete(self:custom_number) -> ()
+    print("Deleting custom_number:")
+    print(self)
+  end
+end
+
+impl Object<option>
+  def delete(self) -> ()
+    print("Deleting option:")
+    match self
+      Some(a) => print("Some(" ++ str(a) ++ ")")
+      None => print("None")
+    end
   end
 end
 
 def bar()
   x = new Some(5)
-  x
+  return x
 end
 
-def baz()
-  y = bar()
-  match y
-    Some(a) => print(a)
-    None => print("None")
-  end
-end
-
-def foobar(x, y)
+def foobar()
   # this will have delete called on it when function exits
   j = new One
   # does not have delete called on it, as it's not a persistent object
   k = Two
-  x + y
 end
 
-def main()
-  x = foo()
-  baz()
-  print(foobar(5,10))
+def main() -> ()
+  foobar()
+  y = bar()
+
+  return ()
 end
 
 main()

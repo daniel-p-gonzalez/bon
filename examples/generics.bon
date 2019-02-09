@@ -7,7 +7,7 @@ def add(x, y)
   return z
 end
 
-print("Calling 'identity' with a number: " ++ to_string(identity(1)))
+print("Calling 'identity' with a number: " ++ str(identity(1)))
 print("Calling 'identity' with a string: " ++ identity("hello!"))
-print("Calling 'add' with integers: " ++ to_string(add(5, 10)))
-print("Calling 'add' with floats: " ++ to_string(add(19.57, 20.18)))
+print("Calling 'add' with integers: " ++ str(add(5, 10)))
+print("Calling 'add' with floats: " ++ str(add(19.57, 20.18)))

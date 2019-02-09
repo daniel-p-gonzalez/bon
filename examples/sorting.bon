@@ -31,8 +31,8 @@ def sort_ints()
     print("Integer sort -\n")
     num_batches = 10
     batch_size = 1000000
-    print("Sorting " ++ batch_size.to_string() ++
-          " integers " ++ num_batches.to_string() ++ " times.")
+    print("Sorting " ++ batch_size.str() ++
+          " integers " ++ num_batches.str() ++ " times.")
     iterations = 0
     total_time = 0
     while iterations < num_batches
@@ -49,8 +49,8 @@ def sort_ints()
         total_time = total_time + (end_time-start_time)
         iterations = iterations + 1
     end
-    print("Finished in " ++ (total_time/1000).to_string() ++ "ms")
-    print("Average time: " ++ (total_time/1000/num_batches).to_string() ++ "ms")
+    print("Finished in " ++ (total_time/1000).str() ++ "ms")
+    print("Average time: " ++ (total_time/1000/num_batches).str() ++ "ms")
 end
 
 def main()

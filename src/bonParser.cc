@@ -24,6 +24,7 @@ Parser::Parser(ModuleState &state) : state_(state) {
   binop_precedence_[tok_lteq] = 10;
   binop_precedence_[tok_gteq] = 10;
   binop_precedence_[tok_eq] = 10;
+  binop_precedence_[tok_neq] = 10;
   binop_precedence_[tok_lshift] = 15;
   binop_precedence_[tok_rshift] = 15;
   binop_precedence_[tok_add] = 20;

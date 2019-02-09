@@ -6,8 +6,8 @@ def list_match(x)
     [5] => print("Found 5")
     10::[] => print("Found 10")
     [1,2,3] => print("Found [1,2,3]")
-    hd :: snd :: [] => print("Found list with 2 elements: " ++ to_string(hd) ++ ", " ++ to_string(snd))
-    hd :: tl => print("Using 'hd :: tl' match. Head is: " ++ to_string(hd))
+    hd :: snd :: [] => print("Found list with 2 elements: " ++ str(hd) ++ ", " ++ str(snd))
+    hd :: tl => print("Using 'hd :: tl' match. Head is: " ++ str(hd))
   end
 end
 

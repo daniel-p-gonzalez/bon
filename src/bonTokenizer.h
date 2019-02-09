@@ -60,6 +60,8 @@ enum Token {
   tok_gt,
   tok_lt,
   tok_eq,
+  tok_neq,
+  tok_negate,
   tok_gteq,
   tok_lteq,
   tok_concat,

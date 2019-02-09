@@ -17,6 +17,9 @@ FunctionAST*
   auto &typeclass = typeclasses[typeclass_name];
   for (auto &impl : typeclass->impls) {
     auto &method = impl->methods_[method_name];
+    if (!method) {
+      continue;
+    }
     auto method_type_var = resolve_variable(method->type_var());
     if (method_type_var->type_operator_ && func_type_var->type_operator_) {
       if (type_operators_match(method_type_var->type_operator_,
@@ -35,6 +38,9 @@ Function* ModuleState::get_typeclass_impl_function(std::string func_name,
     std::string typeclass_name = typeclass_entry->second;
     for (auto &impl : typeclasses[typeclass_name]->impls) {
       auto &method = impl->methods_[func_name];
+      if (!method) {
+        continue;
+      }
       std::string impl_name = func_name + " = "
                               + method->type_var()->get_name();
       if (impl_name == mangled_name) {

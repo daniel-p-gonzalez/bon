@@ -78,6 +78,10 @@ std::vector<TypeVariable*> s_ptr_elem_type = {new TypeVariable()};
 TypeVariable* PointerType =
                 new TypeVariable(new TypeOperator("Pointer", s_ptr_elem_type));
 
+// opaque raw pointer for interop with c apis
+TypeVariable* CPointerType =
+                new TypeVariable(new TypeOperator("cpointer", s_empty_types));
+
 void dump_environment() {
     // std::cout << "Environment state:" << std::endl;
     // for (size_t i = 0; i < s_env_stack.size(); ++i) {
@@ -810,6 +814,9 @@ TypeVariable* type_variable_from_identifier(std::string type_name) {
     }
     else if (type_name == "pointer") {
         return PointerType;
+    }
+    else if (type_name == "cpointer") {
+        return CPointerType;
     }
     else if (s_type_registry.find(type_name) != s_type_registry.end()) {
         return s_type_registry[type_name];

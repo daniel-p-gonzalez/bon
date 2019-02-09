@@ -1,8 +1,8 @@
 impl Object<vec>
   def delete(self:vec) -> ()
     print("deleting vector with size: " ++
-          to_string(self.size) ++
-          " and capacity: " ++ to_string(self.capacity))
+          str(self.size) ++
+          " and capacity: " ++ str(self.capacity))
   end
 end
 
@@ -51,11 +51,11 @@ def main()
 #  end
 
   match v.at(0)
-    Some(a) => print("v[0]: " ++ to_string(a))
+    Some(a) => print("v[0]: " ++ str(a))
     None => print("v[0]: " ++ "index out of bounds")
   end
   match v.at(20)
-    Some(a) => print("v[20]: " ++ to_string(a))
+    Some(a) => print("v[20]: " ++ str(a))
     None => print("v[20]: " ++ "index out of bounds")
   end
 

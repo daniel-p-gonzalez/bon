@@ -9,6 +9,7 @@ L*----------------------------------------------------------------------------*/
 #include <sstream>
 #include <cstring>
 #include <chrono>
+#include <vector>
 
 extern "C" int64_t get_time() {
   using namespace std::chrono;
@@ -20,6 +21,46 @@ extern "C" int64_t get_time() {
 
 extern "C" void* null_ptr() {
   return nullptr;
+}
+
+extern "C" bool is_nullptr(void* ptr) {
+  return ptr == nullptr;
+}
+
+extern "C" void* open_file(char* filename, char* mode) {
+  std::FILE* file = fopen(filename, mode);
+  return file;
+}
+
+extern "C" char* get_line_internal(void* file_ptr) {
+  std::FILE* file = (std::FILE*)file_ptr;
+  char* line = nullptr;
+  size_t len = 0;
+  auto read = getline(&line, &len, file);
+  if (read == -1 || line == nullptr) {
+    auto emptyline = new char[1];
+    emptyline[0] = 0;
+    return emptyline;
+  }
+  return line;
+}
+
+extern std::vector<std::string> s_args;
+extern "C" char* get_arg(int64_t index) {
+  if (index < s_args.size()) {
+    auto arg = s_args[index];
+    char* new_str = new char[arg.size()+1];
+    size_t idx = 0;
+    for (auto &chr : arg) {
+      new_str[idx++] = chr;
+    }
+    new_str[arg.size()] = 0;
+    return new_str;
+  }
+
+  auto emptyline = new char[1];
+  emptyline[0] = 0;
+  return emptyline;
 }
 
 extern "C" void print_string(char* str) {

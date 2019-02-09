@@ -1,0 +1,29 @@
+cdef exit(code:int) -> ()
+import env
+import file
+
+def print_file(file)
+  line = get_line(file)
+
+  while line != ""
+    write(line)
+    line = get_line(file)
+  end
+end
+
+def main()
+  args = get_args()
+  filename = if args.len() > 1 then args.unsafe_at(1) else ""
+  if filename == ""
+    print("Usage: bon " ++ args.unsafe_at(0) ++ " FILE")
+    exit(0)
+  end
+
+  f = open(filename, "r")
+  match f
+    Some(file) => print_file(file)
+    None => print("File not found: " ++ filename)
+  end
+end
+
+main()

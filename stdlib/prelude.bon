@@ -9,10 +9,16 @@ end
 class Print<T>
   def to_string(x:T) -> string;
   def print(x:T) -> ();
+  def write(x:T) -> ();
+end
+
+def str(x) -> string
+  to_string(x)
 end
 
 class Eq<T>
   def operator==(a:T, b:T) -> bool;
+  def operator!=(a:T, b:T) -> bool;
 end
 
 class Ord<T>

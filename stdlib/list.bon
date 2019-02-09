@@ -37,6 +37,10 @@ impl Print<list>
     def print(lst:list) -> ()
         print_string(list_to_string(lst))
     end
+
+    def write(lst:list) -> ()
+        write_string(list_to_string(lst))
+    end
 end
 
 def print_list(lst)
