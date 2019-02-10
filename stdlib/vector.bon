@@ -36,6 +36,9 @@ end
 
 def unsafe_at(v:vec, index:int)
   if index >= v.size
+    # TODO: this is still unsafe if size==0
+    # ideally this should be something like:
+    #  out_of_bounds<pointer_element_type(v.data)>()
     out_of_bounds(ptr_offset(v.data, 0))
   else
     ptr_offset(v.data, index)

@@ -3,7 +3,7 @@ def insertion_sort(xs)
     len = xs.len()
     while i < len
         j = i
-        while j > 0 and xs.unsafe_at(j-1) > xs.unsafe_at(j)
+        while j > 0 and xs[j-1] > xs[j]
             xs.swap(j, j-1)
             j = j - 1
         end
@@ -14,14 +14,14 @@ end
 
 def qsort(xs, low, high)
     mid = low + ((high - low) / 2)
-    pivot = xs.unsafe_at(mid)
+    pivot = xs[mid]
     i = low
     j = high
     while i <= j
-        while xs.unsafe_at(i) < pivot
+        while xs[i] < pivot
             i = i + 1
         end
-        while xs.unsafe_at(j) > pivot
+        while xs[j] > pivot
             j = j - 1
         end
         if i <= j

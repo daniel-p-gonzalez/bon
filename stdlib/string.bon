@@ -33,7 +33,7 @@ def char(str:string, index:int)
 end
 
 def split(str:string, delim:string)
-  v = vec()
+  v = []
   skip_len = delim.strlen()
   token_start = 0
   pos = str.find(delim)

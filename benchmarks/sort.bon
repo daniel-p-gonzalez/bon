@@ -14,7 +14,7 @@ import time
 def main()
   batch_size = 1000000
 
-  v = vec()
+  v = []
   rng = random_generator(172344)
   i = 0
   while i < batch_size

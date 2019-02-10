@@ -36,9 +36,9 @@ def advance(bodies)
   i = 0
   while i < nbodies
     j = i + 1
-    body = bodies.unsafe_at(i)
+    body = bodies[i]
     while j < nbodies
-      body2 = bodies.unsafe_at(j)
+      body2 = bodies[j]
       dx = body.x - body2.x
       dy = body.y - body2.y
       dz = body.z - body2.z
@@ -57,7 +57,7 @@ def advance(bodies)
 
   i = 0
   while i < nbodies
-    body = bodies.unsafe_at(i)
+    body = bodies[i]
     body.x = body.x + dt * body.vx
     body.y = body.y + dt * body.vy
     body.z = body.z + dt * body.vz
@@ -70,11 +70,11 @@ def energy(bodies)
   e = 0.0
   i = 0
   while i < nbodies
-    body = bodies.unsafe_at(i)
+    body = bodies[i]
     e = e + 0.5 * body.mass * (body.vx * body.vx + body.vy * body.vy + body.vz * body.vz)
     j = i + 1
     while j < nbodies
-      body2 = bodies.unsafe_at(j)
+      body2 = bodies[j]
       dx = body.x - body2.x
       dy = body.y - body2.y
       dz = body.z - body2.z
@@ -92,9 +92,9 @@ def offset_momentum(bodies)
   pi = 3.141592653589793
   solar_mass = 4.0 * pi * pi
   i = 0
-  body = bodies.unsafe_at(0)
+  body = bodies[0]
   while i < nbodies
-    body2 = bodies.unsafe_at(i)
+    body2 = bodies[i]
     body.vx = body.vx - (body2.vx * body2.mass) / solar_mass
     body.vy = body.vy - (body2.vy * body2.mass) / solar_mass
     body.vz = body.vz - (body2.vz * body2.mass) / solar_mass
@@ -110,7 +110,7 @@ def main()
   n = 50000000
 #  n = 1000
 
-  bodies = vec()
+  bodies = []
   # sun
   bodies.push(new Planet(0.0, 0.0, 0.0,
                          0.0, 0.0, 0.0,

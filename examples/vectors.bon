@@ -11,7 +11,7 @@ def main()
 
   i = 0
   while i < v.len()
-    print(v.unsafe_at(i))
+    print(v[i])
     i = i + 1
   end
 
@@ -29,7 +29,7 @@ def main()
   v2.set(5, "?")
   i = 0
   while i < v2.len()
-    print(v2.unsafe_at(i))
+    print(v2[i])
     i = i + 1
   end
 end

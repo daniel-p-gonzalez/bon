@@ -5,7 +5,7 @@ import time
 def sort_strings()
     print("\nString sort -\n")
     print("Before sorting:")
-    strings = vec()
+    strings = []
     strings.push("elephant")
     strings.push("penguin")
     strings.push("polar bear")
@@ -14,7 +14,7 @@ def sort_strings()
     strings.push("brown bear")
     i = 0
     while i < strings.len()
-        print(strings.unsafe_at(i))
+        print(strings[i])
         i = i + 1
     end
 
@@ -22,7 +22,7 @@ def sort_strings()
     print("\nAfter sorting:")
     i = 0
     while i < strings.len()
-        print(strings.unsafe_at(i))
+        print(strings[i])
         i = i + 1
     end
 end
@@ -32,7 +32,7 @@ def sort_ints()
     batch_size = 1000000
     print("Sorting " ++ batch_size.str() ++ " integers.")
 
-    v = vec()
+    v = []
     rng = random_generator(172344)
     i = 0
     while i < batch_size
