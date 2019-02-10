@@ -1,0 +1,32 @@
+# test run:
+# $ time bon benchmarks/sort.bon
+# Finished in 75ms (time for sort only)
+
+# (time for full compile and run)
+# real    0m0.219s
+# user    0m0.211s
+# sys     0m0.008s
+
+import random
+import sort
+import time
+
+def main()
+  batch_size = 1000000
+
+  v = vec()
+  rng = random_generator(172344)
+  i = 0
+  while i < batch_size
+      v.push(rng.rand())
+      i = i + 1
+  end
+
+  start_time = get_time()
+  v.sort()
+  total_time = get_time() - start_time
+
+  print("Finished in " ++ (total_time/1000).str() ++ "ms")
+end
+
+main()

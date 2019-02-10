@@ -1933,15 +1933,15 @@ void CaseGenPass::process(StringExprAST* node) {
   call_args.push_back(pattern_);
 
   // lookup string equality function
-  auto string_cmp = codegen_->get_function("str_eq");
+  auto string_cmp = codegen_->get_function("cstreq");
   if (!string_cmp) {
     std::ostringstream msg;
-    logger.error("internal error", msg << "missing str_eq implementation");
+    logger.error("internal error", msg << "missing cstreq implementation");
     returns (nullptr);
     return;
   }
 
-  returns (state_.builder.CreateCall(string_cmp, call_args, "str_eq"));
+  returns (state_.builder.CreateCall(string_cmp, call_args, "cstreq"));
 }
 
 // BoolExprAST

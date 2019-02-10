@@ -3,11 +3,18 @@ import env
 import file
 
 def print_file(file)
-  line = get_line(file)
+  line = get_line(file).strip()
 
   while line != ""
-    write(line)
-    line = get_line(file)
+    tokens = line.split(";")
+
+    i = 0
+    while i < tokens.len()
+      print(tokens.unsafe_at(i))
+      i = i + 1
+    end
+
+    line = get_line(file).strip()
   end
 end
 

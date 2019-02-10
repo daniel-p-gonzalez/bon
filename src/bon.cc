@@ -51,6 +51,8 @@ void init_module_and_passes() {
   // add pass manager to module for optimizations
   state_.function_pass_manager =
     llvm::make_unique<legacy::FunctionPassManager>(state_.current_module.get());
+  state_.module_pass_manager =
+    llvm::make_unique<legacy::PassManager>();
 
   // add standard optimization passes
   PassManagerBuilder Builder;
@@ -58,6 +60,8 @@ void init_module_and_passes() {
   Builder.OptLevel = OPTIMIZATION_LEVEL;
   Builder.Inliner = createFunctionInliningPass(OPTIMIZATION_LEVEL, 0);
   Builder.populateFunctionPassManager(*state_.function_pass_manager);
+  Builder.populateModulePassManager(*state_.module_pass_manager);
+  // Builder.populateLTOPassManager(*state_.module_pass_manager);
 
   // add additional useful passes
   if (OPTIMIZATION_LEVEL == 0) {
@@ -146,6 +150,7 @@ bool run_codegen() {
       state_.current_module->dump();
     }
     state_.function_pass_manager->doFinalization();
+    state_.module_pass_manager->run(*state_.current_module);
     state_.JIT->addModule(std::move(state_.current_module));
     init_module_and_passes();
   }
@@ -166,6 +171,7 @@ bool run_codegen() {
         state_.current_module->dump();
       }
       state_.function_pass_manager->doFinalization();
+      state_.module_pass_manager->run(*state_.current_module);
       auto H = state_.JIT->addModule(std::move(state_.current_module));
       init_module_and_passes();
 

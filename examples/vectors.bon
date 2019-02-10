@@ -6,21 +6,6 @@ impl Object<vec>
   end
 end
 
-class Iterator<T>
-  def next(self:T);
-end
-
-type vec_iter
-  VecIter(v:vec, i:int)
-end
-
-impl Iterator<vec_iter>
-  def next(self:vec_iter)
-    self.i = self.i + 1
-    self.v.at(self.i-1)
-  end
-end
-
 def main()
   v = vec()
   v.push(5)
@@ -28,27 +13,11 @@ def main()
   v.push(15)
   v.push(25)
 
-  iter = VecIter(v, 0)
-  keep_looping = true
-  while keep_looping
-    match iter.next()
-      Some(a) => print(a)
-      None =>
-        keep_looping = false
-        ()
-      end
-    end
-  end
-
   i = 0
   while i < v.len()
     print(v.unsafe_at(i))
     i = i + 1
   end
-
-#  for x in v:
-#    print(x)
-#  end
 
   match v.at(0)
     Some(a) => print("v[0]: " ++ str(a))

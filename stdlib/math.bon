@@ -25,32 +25,3 @@ impl Num<int>
       0 - x
   end
 end
-
-# implement Print for conversion to string
-impl Print<float>
-  def to_string(x:float)
-    return float_to_string(x)
-  end
-
-  def print(x:float) -> ()
-    print(float_to_string(x))
-  end
-
-  def write(x:float) -> ()
-    write(float_to_string(x))
-  end
-end
-
-impl Print<int>
-  def to_string(x:int)
-    return int_to_string(x)
-  end
-
-  def print(x:int) -> ()
-    print(int_to_string(x))
-  end
-
-  def write(x:int) -> ()
-    write(int_to_string(x))
-  end
-end

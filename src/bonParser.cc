@@ -340,6 +340,9 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
     // eat ( or ()
     tokenizer_.consume();
   }
+
+  // for allowing line breaks
+  bool indented = false;
   std::vector<std::unique_ptr<ExprAST>> args;
   if (expecting_args) {
     if (tokenizer_.peak() != tok_rparen) {
@@ -364,7 +367,17 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
           tokenizer_.consume();
           return nullptr;
         }
+        // eat ','
         tokenizer_.consume();
+        if (tokenizer_.peak() == tok_indent) {
+          if (indented) {
+            bon::logger.error("syntax error", "misaligned indentation");
+          }
+          indented = true;
+          // eat tok_indent
+          tokenizer_.consume();
+          tokenizer_.skip_next_dedent();
+        }
       }
     }
   }

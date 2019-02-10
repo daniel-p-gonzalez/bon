@@ -52,9 +52,10 @@ type tuple<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o>
   Tuple15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
 end
 
+import math
+import vector
 import string
 import option
-import math
 import list
 import bool
-import vector
+import print

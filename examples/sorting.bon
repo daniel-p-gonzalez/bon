@@ -29,28 +29,22 @@ end
 
 def sort_ints()
     print("Integer sort -\n")
-    num_batches = 10
     batch_size = 1000000
-    print("Sorting " ++ batch_size.str() ++
-          " integers " ++ num_batches.str() ++ " times.")
-    iterations = 0
-    total_time = 0
-    while iterations < num_batches
-        v = vec()
-        rng = random_generator(172344)
-        i = 0
-        while i < batch_size
-            v.push(rng.rand())
-            i = i + 1
-        end
-        start_time = get_time()
-        v.sort()
-        end_time = get_time()
-        total_time = total_time + (end_time-start_time)
-        iterations = iterations + 1
+    print("Sorting " ++ batch_size.str() ++ " integers.")
+
+    v = vec()
+    rng = random_generator(172344)
+    i = 0
+    while i < batch_size
+        v.push(rng.rand())
+        i = i + 1
     end
+
+    start_time = get_time()
+    v.sort()
+    total_time = get_time() - start_time
+
     print("Finished in " ++ (total_time/1000).str() ++ "ms")
-    print("Average time: " ++ (total_time/1000/num_batches).str() ++ "ms")
 end
 
 def main()
