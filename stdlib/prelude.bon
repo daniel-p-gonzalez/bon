@@ -1,3 +1,5 @@
+cdef exit(code:int) -> ()
+
 class Object<T>
   def delete(self:T) -> ();
 end
@@ -34,6 +36,10 @@ end
 
 type pair<a>
   Pair(a, a)
+end
+
+class BoundsCheck<T>
+  def out_of_bounds(template:T);
 end
 
 type tuple<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o>

@@ -7,11 +7,7 @@ impl Object<vec>
 end
 
 def main()
-  v = vec()
-  v.push(5)
-  v.push(10)
-  v.push(15)
-  v.push(25)
+  v = [5, 10, 15, 25]
 
   i = 0
   while i < v.len()
@@ -28,13 +24,7 @@ def main()
     None => print("v[20]: " ++ "index out of bounds")
   end
 
-  v2 = vec()
-  v2.push("this")
-  v2.push("is")
-  v2.push("a")
-  v2.push("string")
-  v2.push("array")
-  v2.push(".")
+  v2 = ["this", "is", "a", "string", "array", "."]
   v2.swap(0, 1)
   v2.set(5, "?")
   i = 0

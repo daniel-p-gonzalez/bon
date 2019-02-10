@@ -35,7 +35,11 @@ def at(v:vec, index:int)
 end
 
 def unsafe_at(v:vec, index:int)
-  ptr_offset(v.data, index)
+  if index >= v.size
+    out_of_bounds(ptr_offset(v.data, 0))
+  else
+    ptr_offset(v.data, index)
+  end
 end
 
 def swap(v:vec, i:int, j:int)
@@ -52,4 +56,244 @@ end
 
 def len(v:vec) -> int
   v.size
+end
+
+# convenience functions to simplify compiler
+# TODO: this is a temporary solution
+def vec1(arg1)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    return v
+end
+
+def vec2(arg1, arg2)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    return v
+end
+
+def vec3(arg1, arg2, arg3)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    return v
+end
+
+def vec4(arg1, arg2, arg3, arg4)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    return v
+end
+
+def vec5(arg1, arg2, arg3, arg4, arg5)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    return v
+end
+
+def vec6(arg1, arg2, arg3, arg4, arg5, arg6)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    return v
+end
+
+def vec7(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    return v
+end
+
+def vec8(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    return v
+end
+
+def vec9(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    return v
+end
+
+def vec10(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    return v
+end
+
+def vec11(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    return v
+end
+
+def vec12(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    return v
+end
+
+def vec13(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    v.push(arg13)
+    return v
+end
+
+def vec14(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    v.push(arg13)
+    v.push(arg14)
+    return v
+end
+
+def vec15(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    v.push(arg13)
+    v.push(arg14)
+    v.push(arg15)
+    return v
+end
+
+def vec16(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    v.push(arg13)
+    v.push(arg14)
+    v.push(arg15)
+    v.push(arg16)
+    return v
+end
+
+def vec17(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17)
+    v = new Vec(0, 0, null_ptr())
+    v.push(arg1)
+    v.push(arg2)
+    v.push(arg3)
+    v.push(arg4)
+    v.push(arg5)
+    v.push(arg6)
+    v.push(arg7)
+    v.push(arg8)
+    v.push(arg9)
+    v.push(arg10)
+    v.push(arg11)
+    v.push(arg12)
+    v.push(arg13)
+    v.push(arg14)
+    v.push(arg15)
+    v.push(arg16)
+    v.push(arg17)
+    return v
 end

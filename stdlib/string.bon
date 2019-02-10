@@ -95,3 +95,10 @@ impl Print<string>
     write_string(x)
   end
 end
+
+impl BoundsCheck<string>
+  def out_of_bounds(template:string) -> string
+    template
+    return ""
+  end
+end

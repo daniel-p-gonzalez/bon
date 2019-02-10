@@ -25,3 +25,10 @@ impl Num<int>
       0 - x
   end
 end
+
+impl BoundsCheck<int>
+  def out_of_bounds(template:int) -> int
+    template
+    return 0
+  end
+end

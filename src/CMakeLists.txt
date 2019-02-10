@@ -9,8 +9,8 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-#set(CMAKE_CXX_FLAGS "-std=c++11 -fPIC -fexceptions -O3 -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -ffunction-sections -fdata-sections -DNDEBUG -g1")
-set(CMAKE_CXX_FLAGS "-std=c++11 -fPIC -fexceptions -DNDEBUG -D_GLIBCXX_DEBUG -O0 -g -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -ffunction-sections -fdata-sections")
+set(CMAKE_CXX_FLAGS "-std=c++11 -fPIC -fexceptions -O3 -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -ffunction-sections -fdata-sections -DNDEBUG -g1")
+#set(CMAKE_CXX_FLAGS "-std=c++11 -fPIC -fexceptions -DNDEBUG -D_GLIBCXX_DEBUG -O0 -g -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -ffunction-sections -fdata-sections")
 set(CMAKE_EXE_LINKER_FLAGS "-rdynamic -g")
 
 include_directories(${LLVM_INCLUDE_DIRS})

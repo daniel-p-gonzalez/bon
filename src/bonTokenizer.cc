@@ -372,15 +372,17 @@ Token Tokenizer::next_token() {
     return tok_assign;
   }
 
-  // "[]" is syntactic sugar for Empty list constructor
+  // "[]" is syntactic sugar for empty vector constructor
   if (last_char_ == '[') {
     do
       last_char_ = next_char();
     while (last_char_ != EOF && isspace(last_char_));
     if (last_char_ == ']') {
       last_char_ = next_char();
-      identifier_ = "Empty";
-      return tok_typeconstructor;
+      identifier_ = "vec";
+      token_cache.push_back(tok_rparen);
+      token_cache.push_back(tok_lparen);
+      return tok_identifier;
     }
     return tok_lbracket;
   }

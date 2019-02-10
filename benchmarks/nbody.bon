@@ -18,6 +18,18 @@ type planet
          mass:float)
 end
 
+# to support "unsafe" access to vector of planets,
+# need to provide an out_of_bounds impl for the planet type
+impl BoundsCheck<planet>
+  def out_of_bounds(template:planet) -> planet
+    # let's just fail hard if we index out of bounds:
+    print("Accessed array out of bounds!")
+    exit(-1)
+    # won't get here
+    return template
+  end
+end
+
 def advance(bodies)
   nbodies = bodies.len()
   dt = 0.01

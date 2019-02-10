@@ -957,12 +957,40 @@ std::unique_ptr<ExprAST> Parser::parse_list_constructor() {
   tokenizer_.consume();
 
   auto line_num = tokenizer_.line_number();
+  auto col_num = tokenizer_.column();
+
   auto head = parse_expression();
   if (!head) {
     return nullptr;
   }
 
-  return parse_list_item(std::move(head));
+  std::vector<std::unique_ptr<ExprAST>> args;
+  args.push_back(std::move(head));
+
+  while (tokenizer_.peak() == tok_comma) {
+    // eat ','
+    tokenizer_.consume();
+    auto next = parse_expression();
+    if (!next) {
+      return nullptr;
+    }
+    args.push_back(std::move(next));
+  }
+
+  if (tokenizer_.peak() != tok_rbracket) {
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ')' or ',' in list constructor");
+    return nullptr;
+  }
+  // eat ']'
+  tokenizer_.consume();
+
+  auto fn_name = "vec" + std::to_string(args.size());
+  auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, fn_name,
+                                                  std::move(args));
+  called_functions_.push_back(call_expr.get());
+  return call_expr;
 }
 
 // parse primary expression

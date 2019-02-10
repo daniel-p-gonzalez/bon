@@ -914,6 +914,7 @@ void CodeGenPass::process(MatchExprAST* node) {
 
 TypeVariable* CodeGenPass::fn_type_from_call(CallExprAST* node) {
   TypeVariable* func_type_var = nullptr;
+
   auto func = state_.all_functions[node->Callee].get();
   if (func == nullptr) {
     // must be an extern c function
@@ -949,7 +950,13 @@ void CodeGenPass::process(CallExprAST* node) {
   // AutoScope pop_env([node]{ node->Env = pop_environment(); });
 
   TypeVariable* func_type_var = fn_type_from_call(node);
+  auto func =
+          state_.get_typeclass_impl_function_node(node->Callee,
+                                                  func_type_var);
 
+  if (func) {
+    push_environment(func->type_env_);
+  }
   // Look up the name in the global module table.
   std::stringstream type_name;
   push_environment(node->Env);
@@ -966,6 +973,9 @@ void CodeGenPass::process(CallExprAST* node) {
   }
 
   pop_environment();
+  if (func) {
+    pop_environment();
+  }
 
   if (!CalleeF) {
     std::cout << "mangled name: " << mangled_name << std::endl;

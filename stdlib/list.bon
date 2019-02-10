@@ -5,68 +5,68 @@ type list<a>
   Cons(a, list)
 end
 
-impl Concat<list>
-  def operator++(lhs:list, rhs:list) -> list
-    match lhs
-      [] => rhs
-      hd :: tl => hd :: (tl ++ rhs)
-    end
-  end
-end
+# impl Concat<list>
+#   def operator++(lhs:list, rhs:list) -> list
+#     match lhs
+#       [] => rhs
+#       hd :: tl => hd :: (tl ++ rhs)
+#     end
+#   end
+# end
 
 
-def list_to_string_aux(lst)
-    match lst
-        [] => ""
-        last :: [] => to_string(last)
-        head :: tail =>
-            to_string(head) ++ ", " ++ list_to_string_aux(tail)
-        end
-    end
-end
+# def list_to_string_aux(lst)
+#     match lst
+#         [] => ""
+#         last :: [] => to_string(last)
+#         head :: tail =>
+#             to_string(head) ++ ", " ++ list_to_string_aux(tail)
+#         end
+#     end
+# end
 
-def list_to_string(lst)
-    "[" ++ list_to_string_aux(lst) ++ "]"
-end
+# def list_to_string(lst)
+#     "[" ++ list_to_string_aux(lst) ++ "]"
+# end
 
-impl Print<list>
-    def to_string(lst:list) -> string
-        list_to_string(lst)
-    end
+# impl Print<list>
+#     def to_string(lst:list) -> string
+#         list_to_string(lst)
+#     end
+#
+#     def print(lst:list) -> ()
+#         print_string(list_to_string(lst))
+#     end
+#
+#     def write(lst:list) -> ()
+#         write_string(list_to_string(lst))
+#     end
+# end
 
-    def print(lst:list) -> ()
-        print_string(list_to_string(lst))
-    end
+# def print_list(lst)
+#     print(list_to_string(lst))
+# end
 
-    def write(lst:list) -> ()
-        write_string(list_to_string(lst))
-    end
-end
+# def length_aux(lst, len)
+#     match lst
+#         Empty => len
+#         head :: tail => length_aux(tail, len+1)
+#     end
+# end
 
-def print_list(lst)
-    print(list_to_string(lst))
-end
+# def length(lst)
+#     length_aux(lst, 0)
+# end
 
-def length_aux(lst, len)
-    match lst
-        Empty => len
-        head :: tail => length_aux(tail, len+1)
-    end
-end
-
-def length(lst)
-    length_aux(lst, 0)
-end
-
-def nth(lst, n)
-    match lst
-        Empty => None
-        head :: tail =>
-            if n > 0
-                nth(tail, n-1)
-            else
-                Some(head)
-            end
-        end
-    end
-end
+# def nth(lst, n)
+#     match lst
+#         Empty => None
+#         head :: tail =>
+#             if n > 0
+#                 nth(tail, n-1)
+#             else
+#                 Some(head)
+#             end
+#         end
+#     end
+# end
