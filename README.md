@@ -27,45 +27,11 @@ print(fib(15) == 610)
 
 Bon uses LLVM to generate efficient machine code, either JIT compiled, or pre-compiled to a binary.
 
-Calculating the 45th fibonacci number using a simple recusive implementation (as above) in Bon, C++, Ruby, and Python:
-
-```bash
-# Bon (time for compile and run)
-$ daniel@daniel-laptop:~/bon$ time ./bon examples/fib.bon
-1134903170
-
-real    0m6.749s
-user    0m6.725s
-sys     0m0.005s
-
-# C++ (time for compile and run)
-$ daniel@daniel-laptop:~/bon$ time (clang++ fib.cc -o fib -O3 && ./fib)
-1134903170
-
-real    0m6.071s
-user    0m5.996s
-sys     0m0.054s
-
-# Ruby
-daniel@daniel-laptop:~/bon$ time ruby fib.rb
-1134903170
-
-real    2m16.625s
-user    2m16.578s
-sys     0m0.020s
-
-# Python
-daniel@daniel-laptop:~/bon$ time python fib.py
-1134903170
-
-real    4m42.735s
-user    4m42.724s
-sys     0m0.012s
-```
+This, along with zero-cost automatic memory mangement, keeps Bon in same performance ballpark as C++. For specific examples, see [Benchmarks](https://github.com/FBMachine/bon/tree/master/benchmarks).
 
 ## Safety
 
-Performance doesn't have to come at the expense of safety, and safety doesn't have to come at the expense of simplicity. Bon has a powerful static type system which allows for simplifying code with type inference and pattern matching. In addition, defining recursive data types such as lists or trees is straight forward.
+Performance doesn't have to come at the expense of safety, and safety doesn't have to come at the expense of simplicity. Bon has a powerful static type system which allows for simplifying code with type inference and pattern matching. In addition, Bon allows you to easily define custom behaviors for scenarios such as out-of-bounds memory accesses per type.
 
 Learn more in the [documentation](docs/ch00-01-contents.md)
 
