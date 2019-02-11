@@ -18,6 +18,22 @@ def str(x) -> string
   to_string(x)
 end
 
+class Integer<T>
+  def to_integer(x:T) -> int;
+end
+
+class Float<T>
+  def to_float(x:T) -> float;
+end
+
+def int(x) -> int
+  to_integer(x)
+end
+
+def float(x) -> float
+  to_float(x)
+end
+
 class Eq<T>
   def operator==(a:T, b:T) -> bool;
   def operator!=(a:T, b:T) -> bool;

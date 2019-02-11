@@ -10,6 +10,9 @@ cdef cstrlen(str:string) -> int
 cdef strip(str:string) -> string
 cdef lstrip(str:string) -> string
 cdef rstrip(str:string) -> string
+cdef cstr_ord(str:string) -> int
+cdef string_to_int(str:string) -> int
+cdef string_to_float(str:string) -> float
 
 # TODO: change to option type
 def find(str:string, substr:string) -> int
@@ -28,7 +31,7 @@ def strlen(str:string) -> int
   cstrlen(str)
 end
 
-def char(str:string, index:int)
+def char_at(str:string, index:int)
   csubstr(str, index, 1)
 end
 
@@ -46,6 +49,27 @@ def split(str:string, delim:string)
   substr = str.substr(token_start, str.strlen()-token_start)
   v.push(substr)
   return v
+end
+
+def ord(str:string) -> int
+  if cstrlen(str) == 1
+    cstr_ord(str)
+  else
+    -1
+  end
+end
+
+def hash(str:string) -> int
+  hash = 14695981039346656037
+  i = 0
+  while i < str.strlen()
+    hash = hash ^ str.char_at(i).ord()
+    hash = hash * 1099511628211
+    i = i + 1
+  end
+
+  # TODO: this abs is need until uint is supported
+  return abs(hash)
 end
 
 impl Concat<string>
@@ -79,6 +103,18 @@ impl Ord<string>
 
   def operator<=(a:string, b:string) -> bool
     cstrcmp(a,b) <= 0
+  end
+end
+
+impl Integer<string>
+  def to_integer(str:string) -> int
+    string_to_int(str)
+  end
+end
+
+impl Float<string>
+  def to_float(str:string) -> float
+    string_to_float(str)
   end
 end
 

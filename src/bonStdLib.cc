@@ -228,3 +228,23 @@ extern "C" char* float_to_string(double val) {
   new_str[result.size()] = 0;
   return new_str;
 }
+
+extern "C" int64_t float_to_int(double val) {
+  return static_cast<int64_t>(val);
+}
+
+extern "C" double int_to_float(int64_t val) {
+  return static_cast<double>(val);
+}
+
+extern "C" int64_t cstr_ord(char* str) {
+  return static_cast<int64_t>(str[0]);
+}
+
+extern "C" int64_t string_to_int(char* str) {
+  return strtoll(str, nullptr, 10);
+}
+
+extern "C" double string_to_float(char* str) {
+  return strtod(str, nullptr);
+}

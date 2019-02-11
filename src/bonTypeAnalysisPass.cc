@@ -320,7 +320,9 @@ void TypeAnalysisPass::process(PtrOffsetExprAST* node) {
   node->arg_->run_pass(this);
   node->offset_->run_pass(this);
   // make sure it's a pointer type
-  unify(node->arg_->type_var_, flatten_variable(bon::PointerType));
+  auto ptr_type = flatten_variable(bon::PointerType);
+  get_fresh_variable(ptr_type);
+  unify(node->arg_->type_var_, ptr_type);
   unify(node->type_var_, get_type_of_pointer(node->arg_->type_var_));
 }
 

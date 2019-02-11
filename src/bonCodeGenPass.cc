@@ -371,16 +371,6 @@ void CodeGenPass::process(BinaryExprAST* node) {
                                          node->RHS.get());
       // node->RHS->pop_type_environment();
 
-      // remove node->RHS->name from named_values if present
-      //  to transfer ownership
-      if (state_.named_values.find(node->RHS->getName())
-          != state_.named_values.end()
-          && tracked_allocs_.find(node->RHS->getName())
-             != tracked_allocs_.end()) {
-        state_.named_values.erase(node->RHS->getName());
-        moved_vars_[node->RHS->getName()] = DocPosition(node->RHS->line_num_,
-                                                        node->RHS->column_num_);
-      }
       // add variable to symbol table
       state_.named_values[node->LHS->getName()] = alloca;
 
@@ -388,6 +378,17 @@ void CodeGenPass::process(BinaryExprAST* node) {
         moved_vars_.erase(node->LHS->getName());
       }
       variable = alloca;
+    }
+
+    // remove node->RHS->name from named_values if present
+    //  to transfer ownership
+    if (state_.named_values.find(node->RHS->getName())
+        != state_.named_values.end()
+        && tracked_allocs_.find(node->RHS->getName())
+            != tracked_allocs_.end()) {
+      state_.named_values.erase(node->RHS->getName());
+      moved_vars_[node->RHS->getName()] = DocPosition(node->RHS->line_num_,
+                                                      node->RHS->column_num_);
     }
 
     if (!l_value) {
@@ -402,6 +403,12 @@ void CodeGenPass::process(BinaryExprAST* node) {
         alloc_types_[r_value] = node->RHS->type_var_;
       }
     }
+    else if (tracked_allocs_.find(node->RHS->getName())
+        != tracked_allocs_.end()) {
+      // storing into object, so we're transferring ownership into it
+      free_list_.erase(tracked_allocs_[node->RHS->getName()]);
+    }
+
     // Store the initial value into the alloca.
     state_.builder.CreateStore(r_value, variable);
     // named_values_[LHS->getName()] = r_value;
@@ -879,7 +886,8 @@ void CodeGenPass::process(MatchExprAST* node) {
     auto next_block = is_last_case ? merge_block : case_blocks[i+1];
     state_.builder.SetInsertPoint(case_block);
     push_case(CaseState(pattern, case_block, case_true_block, next_block,
-                        merge_block, get_value_type_dispatch(node),
+                        merge_block,
+                        get_value_type_dispatch(match_case->body_.get()),
                         is_last_case));
     match_case->run_pass(this);
     auto body_value = result();
