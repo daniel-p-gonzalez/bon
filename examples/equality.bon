@@ -7,17 +7,17 @@ end
 
 impl Eq<color>
   def operator==(a:color, b:color) -> bool
-    match Pair(a,b)
-      Pair(Cyan, Cyan) => true
-      Pair(Magenta, Magenta) => true
-      Pair(Yellow, Yellow) => true
-      Pair(Black, Black) => true
+    match (a,b)
+      (Cyan, Cyan) => true
+      (Magenta, Magenta) => true
+      (Yellow, Yellow) => true
+      (Black, Black) => true
       _ => false
     end
   end
 end
 
-print("Black == Yellow: " ++ to_string(Black == Yellow))
-print("Magenta == Magenta: " ++ to_string(Magenta == Magenta))
-print("Cyan == Magenta: " ++ to_string(Cyan == Magenta))
-print("Yellow == Yellow: " ++ to_string(Yellow == Yellow))
+print("Black == Yellow: " ++ str(Black == Yellow))
+print("Magenta == Magenta: " ++ str(Magenta == Magenta))
+print("Cyan == Magenta: " ++ str(Cyan == Magenta))
+print("Yellow == Yellow: " ++ str(Yellow == Yellow))

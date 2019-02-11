@@ -1,0 +1,55 @@
+import random
+import sort
+import time
+
+def sort_strings()
+    print("\nString sort -\n")
+    print("Before sorting:")
+    strings = []
+    strings.push("elephant")
+    strings.push("penguin")
+    strings.push("polar bear")
+    strings.push("zebra")
+    strings.push("lion")
+    strings.push("brown bear")
+    i = 0
+    while i < strings.len()
+        print(strings[i])
+        i = i + 1
+    end
+
+    strings.sort()
+    print("\nAfter sorting:")
+    i = 0
+    while i < strings.len()
+        print(strings[i])
+        i = i + 1
+    end
+end
+
+def sort_ints()
+    print("Integer sort -\n")
+    batch_size = 1000000
+    print("Sorting " ++ batch_size.str() ++ " integers.")
+
+    v = []
+    rng = random_generator(172344)
+    i = 0
+    while i < batch_size
+        v.push(rng.rand())
+        i = i + 1
+    end
+
+    start_time = get_time()
+    v.sort()
+    total_time = get_time() - start_time
+
+    print("Finished in " ++ (total_time/1000).str() ++ "ms")
+end
+
+def main()
+    sort_ints()
+    sort_strings()
+end
+
+main()

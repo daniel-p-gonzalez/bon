@@ -6,6 +6,13 @@ impl Print<bool>
     end
   end
 
+  def write(x:bool) -> ()
+    match x
+      true => write("true")
+      false => write("false")
+    end
+  end
+
   def to_string(x:bool) -> string
     match x
       true => "true"

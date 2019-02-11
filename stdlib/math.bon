@@ -2,6 +2,7 @@ cdef pow(b:float, e:float) -> float
 cdef sqrt(x:float) -> float
 cdef sin(x:float) -> float
 cdef cos(x:float) -> float
+cdef log(x:float) -> float
 cdef float_to_string(val:float) -> string
 cdef int_to_string(val:int) -> string
 
@@ -25,23 +26,9 @@ impl Num<int>
   end
 end
 
-# implement Print for conversion to string
-impl Print<float>
-  def to_string(x:float)
-    return float_to_string(x)
-  end
-
-  def print(x:float) -> ()
-    print(float_to_string(x))
-  end
-end
-
-impl Print<int>
-  def to_string(x:int)
-    return int_to_string(x)
-  end
-
-  def print(x:int) -> ()
-    print(int_to_string(x))
+impl BoundsCheck<int>
+  def out_of_bounds(template:int) -> int
+    template
+    return 0
   end
 end

@@ -20,4 +20,21 @@ impl Eq<option>
       end
     end
   end
+
+  def operator!=(a:option, b:option) -> bool
+    match a
+      Some(x) =>
+        match b
+          Some(y) => x == y
+          None => true
+        end
+      end
+      None =>
+        match b
+          None => false
+          _ => true
+        end
+      end
+    end
+  end
 end

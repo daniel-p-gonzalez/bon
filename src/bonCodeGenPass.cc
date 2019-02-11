@@ -21,6 +21,7 @@ std::unique_ptr<PrototypeAST> copy_proto(PrototypeAST &proto,
                                                    proto.column_num_, name,
                                                    proto.Args,
                                                    std::vector<TypeVariable*>(),
+                                                   proto.arg_owned_,
                                                    proto.ret_type_);
   new_proto->type_var_ = proto.type_var_;
   return new_proto;
@@ -49,26 +50,26 @@ Function* CodeGenPass::get_function(std::string name) {
 // NumberExprAST
 void CodeGenPass::process(NumberExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
-  returns (ConstantFP::get(state_.llvm_context, APFloat(node->Val)));
+  returns (node, ConstantFP::get(state_.llvm_context, APFloat(node->Val)));
 }
 
 // IntegerExprAST
 void CodeGenPass::process(IntegerExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
-  returns (ConstantInt::get(state_.llvm_context, APInt(64, node->Val, true)));
+  returns (node, ConstantInt::get(state_.llvm_context, APInt(64, node->Val, true)));
 }
 
 // StringExprAST
 void CodeGenPass::process(StringExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
-  returns (state_.builder.CreateGlobalStringPtr(node->Val.c_str()));
+  returns (node, state_.builder.CreateGlobalStringPtr(node->Val.c_str()));
 }
 
 // BoolExprAST
 void CodeGenPass::process(BoolExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
   auto val = node->Val ? 1 : 0;
-  returns (ConstantInt::get(state_.llvm_context,
+  returns (node, ConstantInt::get(state_.llvm_context,
            APInt(/*nbits*/1, val, /*is_signed*/false)));
 }
 
@@ -76,31 +77,34 @@ void CodeGenPass::process(BoolExprAST* node) {
 void CodeGenPass::process(UnitExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
 
-  auto tname = node->type_var_->get_name();
-  StructType* structReg = state_.struct_map[tname];
-  if (!structReg) {
-    std::vector<Type*> members;
-    std::vector<Value*> member_values;
-    members.push_back(Type::getInt32Ty(state_.llvm_context));
-    structReg = StructType::create(state_.llvm_context, members,
-                                   "struct." + tname);
-    state_.struct_map[tname] = structReg;
-  }
-  auto entry_block = state_.builder.GetInsertBlock();
+  // auto tname = node->type_var_->get_name();
+  // StructType* structReg = state_.struct_map[tname];
+  // if (!structReg) {
+  //   std::vector<Type*> members;
+  //   std::vector<Value*> member_values;
+  //   members.push_back(Type::getInt32Ty(state_.llvm_context));
+  //   structReg = StructType::create(state_.llvm_context, members,
+  //                                  "struct." + tname);
+  //   state_.struct_map[tname] = structReg;
+  // }
+  // auto entry_block = state_.builder.GetInsertBlock();
 
-  Value* val_alloc = ConstantExpr::getNullValue(structReg);
+  // Value* val_alloc = ConstantExpr::getNullValue(structReg);
 
-  Value* val_type_ptr =
-      state_.builder.CreateStructGEP(structReg, val_alloc, 0,
-                                     val_alloc->getName() + ".at(0)");
+  // Value* val_type_ptr =
+  //     state_.builder.CreateStructGEP(structReg, val_alloc, 0,
+  //                                    val_alloc->getName() + ".at(0)");
 
-  auto tcon_enum = 0;
-  auto tcon_val = ConstantInt::get(state_.llvm_context,
-                                   APInt(/*nbits*/32, tcon_enum,
+  // auto tcon_enum = 0;
+  // auto tcon_val = ConstantInt::get(state_.llvm_context,
+  //                                  APInt(/*nbits*/32, tcon_enum,
+  //                                        /*is_signed*/false));
+  // auto result = state_.builder.CreateStore(tcon_val, val_type_ptr);
+
+  auto ret_val = ConstantInt::get(state_.llvm_context,
+                                   APInt(/*nbits*/32, 0,
                                          /*is_signed*/false));
-  auto result = state_.builder.CreateStore(tcon_val, val_type_ptr);
-
-  returns (state_.builder.CreateLoad(val_alloc, "()"));
+  returns (node, ret_val);
 }
 
 // VariableExprAST
@@ -113,16 +117,23 @@ void CodeGenPass::process(VariableExprAST* node) {
     std::ostringstream msg;
     logger.error("syntax error", msg << "variable " << node->Name
                                      << " is not defined in this scope");
-    returns (nullptr);
+    if (moved_vars_.find(node->Name) != moved_vars_.end()) {
+      logger.set_line_column(moved_vars_[node->Name]);
+      logger.info("note", "ownership was previously transferred:");
+    }
+    returns (node, nullptr);
     return;
   }
 
-  returns (state_.builder.CreateLoad(var_value, node->Name.c_str()));
+  returns (node, state_.builder.CreateLoad(var_value, node->Name.c_str()));
 }
 
 // ValueConstructorExprAST
 void CodeGenPass::process(ValueConstructorExprAST* node) {
   node->push_type_environment();
+
+  bool in_constructor = in_constructor_;
+  in_constructor_ = true;
 
   std::vector<Type*> members;
   std::vector<Value*> member_values;
@@ -138,6 +149,10 @@ void CodeGenPass::process(ValueConstructorExprAST* node) {
                 << arg->type_var_->get_name() << std::endl;
       std::cout << ex.what() << std::endl;
     }
+  }
+
+  if (!in_constructor) {
+    in_constructor_ = false;
   }
 
   auto tname = node->type_var_->get_name();
@@ -156,19 +171,34 @@ void CodeGenPass::process(ValueConstructorExprAST* node) {
 
   auto entry_block = state_.builder.GetInsertBlock();
 
-  Type* ITy = Type::getInt32Ty(state_.llvm_context);
+  Type* ITy = Type::getInt64Ty(state_.llvm_context);
   Constant* AllocSize = ConstantExpr::getSizeOf(structReg);
   AllocSize = ConstantExpr::getTruncOrBitCast(AllocSize, ITy);
-  Instruction* val_alloc = CallInst::CreateMalloc(entry_block,
-                                                  ITy, structReg, AllocSize,
-                                                  nullptr, nullptr);
+  // TODO: only values that escape the function (i.e. return values) need
+  //       to be heap allocated
+  Instruction* val_alloc = nullptr;
+  if (node->heap_alloc_) {
+    val_alloc = CallInst::CreateMalloc(entry_block,
+                                       ITy, structReg, AllocSize,
+                                       nullptr, nullptr, "mallocVal");
+
+    if (!in_constructor) {
+      free_list_.insert((Value*)val_alloc);
+    }
+    else {
+      child_mem_list_.insert((Value*)val_alloc);
+    }
+
+    state_.builder.Insert(val_alloc, node->constructor_);
+  }
+  else {
+    val_alloc = state_.builder.CreateAlloca(structReg, AllocSize, "allocVal");
+  }
 
   MDNode* metadata = MDNode::get(state_.llvm_context,
-                                 MDString::get(state_.llvm_context,
-                                 logger.get_context()));
+                                MDString::get(state_.llvm_context,
+                                logger.get_context()));
   val_alloc->setMetadata("context", metadata);
-
-  state_.builder.Insert(val_alloc, node->constructor_);
 
   Value* ArgValuePtr =
         state_.builder.CreateStructGEP(structReg, val_alloc, 0,
@@ -198,17 +228,43 @@ void CodeGenPass::process(ValueConstructorExprAST* node) {
     ++offset;
   }
 
-  returns (val_alloc);
+  returns (node, val_alloc);
 }
 
 // UnaryExprAST
 void CodeGenPass::process(UnaryExprAST* node) {
+  push_environment(node->Env);
+  AutoScope pop_env([this, node]{
+    pop_environment();
+  });
+
   node->Operand->run_pass(this);
   Value* operand_value = result();
   logger.set_line_column(node->line_num_, node->column_num_);
   if (!operand_value) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
+  }
+
+  switch (node->Opcode) {
+    case tok_mul:
+    {
+      auto var = dynamic_cast<VariableExprAST*>(node->Operand.get());
+      if (var) {
+        // remove var->name from named_values if present
+        //  to transfer ownership
+        if (state_.named_values.find(var->getName())
+            != state_.named_values.end()) {
+          state_.named_values.erase(var->getName());
+          moved_vars_[var->getName()] = DocPosition(var->line_num_,
+                                                    var->column_num_);
+        }
+      }
+      returns (node, operand_value);
+      return;
+    }
+    default:
+      break;
   }
 
   auto callee = std::string("unary") + Tokenizer::token_type(node->Opcode);
@@ -224,7 +280,7 @@ void CodeGenPass::process(UnaryExprAST* node) {
       logger.error("error",
                    "unable to infer type of operand for unary operator "
                    + callee);
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   }
@@ -238,7 +294,7 @@ void CodeGenPass::process(UnaryExprAST* node) {
     std::ostringstream msg;
     logger.error("syntax error", msg << "undefined unary operator "
                                      << node->Opcode);
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
   else {
@@ -255,19 +311,25 @@ void CodeGenPass::process(UnaryExprAST* node) {
       std::ostringstream msg;
       logger.error("syntax error", msg << "undefined unary operator "
                                        << node->Opcode);
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   }
 
-  returns (state_.builder.CreateCall(F, operand_value, "unaryop"));
+  returns (node, state_.builder.CreateCall(F, operand_value, "unaryop"));
 }
 
 // BinaryExprAST
 void CodeGenPass::process(BinaryExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
+  push_environment(node->Env);
+  AutoScope pop_env([this, node]{
+    pop_environment();
+  });
+
   Value* l_value = nullptr;
-  if (node->Op != tok_assign) {
+  if (node->Op != tok_assign
+      || !dynamic_cast<VariableExprAST*>(node->LHS.get())) {
     node->LHS->run_pass(this);
     l_value = result();
   }
@@ -280,7 +342,7 @@ void CodeGenPass::process(BinaryExprAST* node) {
   if (!l_value || !r_value) {
     if (node->Op != tok_assign || !r_value) {
       if (node->Op != tok_dot || !l_value) {
-        returns (nullptr);
+        returns (node, nullptr);
         return;
       }
     }
@@ -288,34 +350,67 @@ void CodeGenPass::process(BinaryExprAST* node) {
 
   Value* variable = nullptr;
   Function* function = nullptr;
-  AllocaInst* Alloca = nullptr;
 
   switch (node->Op) {
   case tok_assign:
+    {
     // Look up the name.
-    variable = state_.named_values[node->LHS->getName()];
+    if (l_value) {
+      variable = l_value;
+    }
+    else {
+      variable = state_.named_values[node->LHS->getName()];
+    }
     if (!variable) {
       function = state_.builder.GetInsertBlock()->getParent();
       // Create an alloca for this variable.
-      node->RHS->push_type_environment();
-      Alloca = create_entry_block_alloca(function, node->LHS->getName(),
+      // node->RHS->push_type_environment();
+      AllocaInst* alloca =
+               create_entry_block_alloca(function, node->LHS->getName(),
                                          node->RHS->type_var_,
                                          node->RHS.get());
-      node->RHS->pop_type_environment();
+      // node->RHS->pop_type_environment();
 
-      // Add arguments to variable symbol table.
-      state_.named_values[node->LHS->getName()] = Alloca;
-      variable = Alloca;
+      // remove node->RHS->name from named_values if present
+      //  to transfer ownership
+      if (state_.named_values.find(node->RHS->getName())
+          != state_.named_values.end()
+          && tracked_allocs_.find(node->RHS->getName())
+             != tracked_allocs_.end()) {
+        state_.named_values.erase(node->RHS->getName());
+        moved_vars_[node->RHS->getName()] = DocPosition(node->RHS->line_num_,
+                                                        node->RHS->column_num_);
+      }
+      // add variable to symbol table
+      state_.named_values[node->LHS->getName()] = alloca;
+
+      if (moved_vars_.find(node->LHS->getName()) != moved_vars_.end()) {
+        moved_vars_.erase(node->LHS->getName());
+      }
+      variable = alloca;
     }
 
+    if (!l_value) {
+      // keep track of the allocation bound to this variable
+      if (r_value->getType()->isPointerTy()) {
+        tracked_allocs_[node->LHS->getName()] = r_value;
+        if (tracked_allocs_.find(node->RHS->getName())
+            != tracked_allocs_.end()) {
+          // transferred ownership, so remove reference to old variable
+          tracked_allocs_.erase(node->RHS->getName());
+        }
+        alloc_types_[r_value] = node->RHS->type_var_;
+      }
+    }
     // Store the initial value into the alloca.
     state_.builder.CreateStore(r_value, variable);
     // named_values_[LHS->getName()] = r_value;
-    returns (r_value);
+    returns (node, r_value);
     return;
+    }
   // sequencing operator
   case tok_sep:
-    returns (r_value);
+    returns (node, r_value);
     return;
   case tok_dot:
     {
@@ -323,10 +418,11 @@ void CodeGenPass::process(BinaryExprAST* node) {
       std::string field = node->RHS->getName();
       auto field_index = get_constructor_field_index(constructor, field);
       auto tname = node->LHS->type_var_->get_name(false);
-      StructType* structReg = state_.struct_map[tname];
+      Type* structReg = state_.struct_map[tname];
       if (!structReg) {
-        bon::logger.error("internal error",
-                          "struct type not found for type: " + tname);
+        structReg = get_value_type_dispatch(node->LHS.get())->getArrayElementType();
+        // bon::logger.error("internal error",
+        //                   "struct type not found for type: " + tname);
       }
       // get constants for our indices
       auto el_idx0 = ConstantInt::get(state_.llvm_context,
@@ -343,104 +439,163 @@ void CodeGenPass::process(BinaryExprAST* node) {
       indices.push_back(el_idx0);
       indices.push_back(el_idx1);
 
-      // grab pointer to constructor index for variant we're matching against
+      // grab pointer to field index for variant we're matching against
       Value* patt_type_ptr = state_.builder.CreateGEP(structReg, l_value,
                                                       indices);
-      // load constructor index for match input
-      auto patt_type_val = state_.builder.CreateLoad(patt_type_ptr);
+
+      auto patt_type_val = patt_type_ptr;
+      // only load if not an lvalue
+      if (!node->is_lvalue) {
+        // load field
+        patt_type_val = state_.builder.CreateLoad(patt_type_ptr);
+      }
+      else {
+        auto obj_node = dynamic_cast<VariableExprAST*>(node->LHS.get());
+        if (obj_node) {
+          // TODO: check if field is mutable
+        }
+      }
 
       // auto val_ptr =
       //   state_.builder.CreateStructGEP(structReg, l_value, field_index+1,
       //                                  field);
-      returns (patt_type_val);
+      returns (node, patt_type_val);
+    }
+    return;
+  case tok_and:
+    // TODO: this is wrong (need to support lazy eval)
+    returns (node, state_.builder.CreateAnd(l_value, r_value, "andtmp"));
+    return;
+  case tok_or:
+    // TODO: this is wrong (need to support lazy eval)
+    returns (node, state_.builder.CreateOr(l_value, r_value, "ortmp"));
+    return;
+  case tok_lshift:
+    returns (node, state_.builder.CreateShl(l_value, r_value, "shltmp"));
+    return;
+  case tok_rshift:
+    returns (node, state_.builder.CreateAShr(l_value, r_value, "shrtmp"));
+    return;
+  case tok_bt_xor:
+    returns (node, state_.builder.CreateXor(l_value, r_value, "bt_xortmp"));
+    return;
+  case tok_bt_and:
+    returns (node, state_.builder.CreateAnd(l_value, r_value, "bt_andtmp"));
+    return;
+  case tok_bt_or:
+    returns (node, state_.builder.CreateOr(l_value, r_value, "bt_ortmp"));
+    return;
+  case tok_rem:
+    if (resolve_variable(node->LHS->type_var_) == IntType) {
+      returns (node, state_.builder.CreateSRem(l_value, r_value, "remtmp"));
+    }
+    else if (resolve_variable(node->LHS->type_var_) == FloatType) {
+      returns (node, state_.builder.CreateFRem(l_value, r_value, "remtmp"));
+    }
+    else {
+      std::ostringstream msg;
+      logger.error("codegen error", msg << "remainder operator % "
+                                        << "not defined for type "
+                                        << node->LHS->type_var_->get_name());
+      returns (node, nullptr);
+      return;
     }
     return;
   case tok_add:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFAdd(l_value, r_value, "addtmp"));
+      returns (node, state_.builder.CreateFAdd(l_value, r_value, "addtmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateAdd(l_value, r_value, "addtmp"));
+      returns (node, state_.builder.CreateAdd(l_value, r_value, "addtmp"));
       return;
     }
     else {
       std::ostringstream msg;
       logger.error("codegen error", msg << "operator + not defined for type "
                                         << node->LHS->type_var_->get_name());
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   case tok_sub:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFSub(l_value, r_value, "subtmp"));
+      returns (node, state_.builder.CreateFSub(l_value, r_value, "subtmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateSub(l_value, r_value, "subtmp"));
+      returns (node, state_.builder.CreateSub(l_value, r_value, "subtmp"));
       return;
     }
   case tok_mul:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFMul(l_value, r_value, "multmp"));
+      returns (node, state_.builder.CreateFMul(l_value, r_value, "multmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateMul(l_value, r_value, "multmp"));
+      returns (node, state_.builder.CreateMul(l_value, r_value, "multmp"));
       return;
     }
   case tok_div:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFDiv(l_value, r_value, "divtmp"));
+      returns (node, state_.builder.CreateFDiv(l_value, r_value, "divtmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateSDiv(l_value, r_value, "divtmp"));
+      returns (node, state_.builder.CreateSDiv(l_value, r_value, "divtmp"));
       return;
     }
   case tok_gt:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFCmpUGT(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateFCmpUGT(l_value, r_value, "cmptmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateICmpSGT(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateICmpSGT(l_value, r_value, "cmptmp"));
       return;
     }
   case tok_lt:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFCmpULT(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateFCmpULT(l_value, r_value, "cmptmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateICmpSLT(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateICmpSLT(l_value, r_value, "cmptmp"));
       return;
     }
   case tok_gteq:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFCmpUGE(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateFCmpUGE(l_value, r_value, "cmptmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateICmpSGE(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateICmpSGE(l_value, r_value, "cmptmp"));
       return;
     }
   case tok_lteq:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFCmpULE(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateFCmpULE(l_value, r_value, "cmptmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateICmpSLE(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateICmpSLE(l_value, r_value, "cmptmp"));
       return;
     }
   case tok_eq:
     if (resolve_variable(node->LHS->type_var_) == FloatType) {
-      returns (state_.builder.CreateFCmpUEQ(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateFCmpUEQ(l_value, r_value, "cmptmp"));
       return;
     }
     else if (resolve_variable(node->LHS->type_var_) == IntType) {
-      returns (state_.builder.CreateICmpEQ(l_value, r_value, "cmptmp"));
+      returns (node, state_.builder.CreateICmpEQ(l_value, r_value, "cmptmp"));
+      return;
+    }
+  case tok_neq:
+    if (resolve_variable(node->LHS->type_var_) == FloatType) {
+      returns (node, state_.builder.CreateFCmpUNE(l_value, r_value, "cmptmp"));
+      return;
+    }
+    else if (resolve_variable(node->LHS->type_var_) == IntType) {
+      returns (node, state_.builder.CreateICmpNE(l_value, r_value, "cmptmp"));
       return;
     }
   default:
@@ -462,7 +617,7 @@ void CodeGenPass::process(BinaryExprAST* node) {
       logger.error("error",
                    "unable to infer type of operand for binary operator "
                    + Callee);
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   }
@@ -476,7 +631,7 @@ void CodeGenPass::process(BinaryExprAST* node) {
     std::ostringstream msg;
     logger.error("syntax error", msg << "undefined binary operator "
                                      << Tokenizer::token_type(node->Op));
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
   else {
@@ -493,7 +648,7 @@ void CodeGenPass::process(BinaryExprAST* node) {
       std::ostringstream msg;
       logger.error("syntax error", msg << "undefined binary operator "
                                        << Tokenizer::token_type(node->Op));
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   }
@@ -502,7 +657,7 @@ void CodeGenPass::process(BinaryExprAST* node) {
   call_args.push_back(l_value);
   call_args.push_back(r_value);
 
-  returns (state_.builder.CreateCall(F, call_args, "binop"));
+  returns (node, state_.builder.CreateCall(F, call_args, "binop"));
 }
 
 // IfExprAST
@@ -511,7 +666,7 @@ void CodeGenPass::process(IfExprAST* node) {
   node->Cond->run_pass(this);
   Value* CondV = result();
   if (!CondV) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
 
@@ -532,7 +687,7 @@ void CodeGenPass::process(IfExprAST* node) {
   node->Then->run_pass(this);
   Value* then_value = result();
   if (!then_value) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
 
@@ -545,11 +700,14 @@ void CodeGenPass::process(IfExprAST* node) {
   function->getBasicBlockList().push_back(else_block);
   state_.builder.SetInsertPoint(else_block);
 
-  node->Else->run_pass(this);
-  Value* else_value = result();
-  if (!else_value) {
-    returns (nullptr);
-    return;
+  Value* else_value = nullptr;
+  if (node->Else) {
+    node->Else->run_pass(this);
+    else_value = result();
+    if (!else_value) {
+      returns (node, nullptr);
+      return;
+    }
   }
 
   state_.builder.CreateBr(merge_block);
@@ -560,13 +718,79 @@ void CodeGenPass::process(IfExprAST* node) {
   // begin gen for merge block
   function->getBasicBlockList().push_back(merge_block);
   state_.builder.SetInsertPoint(merge_block);
-  PHINode* phi_node =
-    state_.builder.CreatePHI(get_value_type_dispatch(node->Then.get()),
-                             2, "ifPhi");
+  if (else_value) {
+    PHINode* phi_node =
+      state_.builder.CreatePHI(get_value_type_dispatch(node->Then.get()),
+                              2, "ifPhi");
 
-  phi_node->addIncoming(then_value, then_block);
-  phi_node->addIncoming(else_value, else_block);
-  returns (phi_node);
+    phi_node->addIncoming(then_value, then_block);
+    phi_node->addIncoming(else_value, else_block);
+    returns (node, phi_node);
+  }
+  else {
+    auto ret_val = ConstantInt::get(state_.llvm_context,
+                                    APInt(/*nbits*/32, 0,
+                                          /*is_signed*/false));
+    returns (node, ret_val);
+  }
+}
+
+// WhileExprAST
+void CodeGenPass::process(WhileExprAST* node) {
+  logger.set_line_column(node->line_num_, node->column_num_);
+
+  Function* function = state_.builder.GetInsertBlock()->getParent();
+  BasicBlock* precond_block = state_.builder.GetInsertBlock();
+  BasicBlock* loop_block = BasicBlock::Create(state_.llvm_context,
+                                              "loop",
+                                              function);
+  BasicBlock* loop_start_block = BasicBlock::Create(state_.llvm_context,
+                                              "loopStart",
+                                              function);
+
+  BasicBlock* after_block = BasicBlock::Create(state_.llvm_context,
+                                               "afterWhile",
+                                               function);
+
+  state_.builder.CreateBr(loop_block);
+
+  // begin gen for 'do' block
+  state_.builder.SetInsertPoint(loop_block);
+
+  node->condition_->run_pass(this);
+  Value* CondV = result();
+  if (!CondV) {
+    returns (node, nullptr);
+    return;
+  }
+
+  state_.builder.CreateCondBr(CondV, loop_start_block, after_block);
+
+  // begin gen for 'do' block
+  state_.builder.SetInsertPoint(loop_start_block);
+
+  node->body_->run_pass(this);
+  Value* do_value = result();
+  if (!do_value) {
+    returns (node, nullptr);
+    return;
+  }
+
+  // // Codegen of 'do' can change the current block, so update loop_block
+  // //  for the PHI merge below
+  // loop_block = state_.builder.GetInsertBlock();
+
+  state_.builder.CreateBr(loop_block);
+
+  // begin gen for after block
+  state_.builder.SetInsertPoint(after_block);
+
+  auto ret_val = ConstantInt::get(state_.llvm_context,
+                                   APInt(/*nbits*/32, 0,
+                                         /*is_signed*/false));
+
+  // state_.current_module->dump();
+  returns (node, ret_val);
 }
 
 // MatchCaseExprAST
@@ -576,7 +800,7 @@ void CodeGenPass::process(MatchCaseExprAST* node) {
   node->condition_->run_pass(&case_gen_pass_);
   Value* condition = case_gen_pass_.result();
   if (!condition) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
 
@@ -597,7 +821,7 @@ void CodeGenPass::process(MatchCaseExprAST* node) {
   node->body_->run_pass(this);
   Value* body_value = result();
   if (!body_value) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
   // trust the type checker and cast to expected type
@@ -610,7 +834,7 @@ void CodeGenPass::process(MatchCaseExprAST* node) {
   // if case matched, jump to after match expression
   state_.builder.CreateBr(case_state.after_block);
 
-  returns (body_value);
+  returns (node, body_value);
 }
 
 // MatchExprAST
@@ -620,7 +844,7 @@ void CodeGenPass::process(MatchExprAST* node) {
   node->pattern_->run_pass(this);
   Value* pattern = result();
   if (!pattern || node->match_cases_.empty()) {
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
 
@@ -685,21 +909,18 @@ void CodeGenPass::process(MatchExprAST* node) {
   state_.builder.SetInsertPoint(after_block);
 
   // current_module_->dump();
-  returns (phi_node);
+  returns (node, phi_node);
 }
 
-// CallExprAST
-void CodeGenPass::process(CallExprAST* node) {
-  logger.set_line_column(node->line_num_, node->column_num_);
-  push_environment(node->Env);
-  AutoScope pop_env([node]{ node->Env = pop_environment(); });
-
+TypeVariable* CodeGenPass::fn_type_from_call(CallExprAST* node) {
   TypeVariable* func_type_var = nullptr;
+
   auto func = state_.all_functions[node->Callee].get();
   if (func == nullptr) {
     // must be an extern c function
     std::vector<TypeVariable*> arg_types;
     for (auto &arg : node->Args) {
+      arg->push_type_environment();
       auto arg_type = resolve_variable(arg->type_var_);
       if (arg_type->type_operator_) {
         auto variant_type =
@@ -708,6 +929,7 @@ void CodeGenPass::process(CallExprAST* node) {
           arg_type = variant_type;
         }
       }
+      arg->pop_type_environment();
       arg_types.push_back(arg_type);
     }
     func_type_var = build_function_type(arg_types);
@@ -715,27 +937,51 @@ void CodeGenPass::process(CallExprAST* node) {
     auto ret_var = get_function_return_type(func_type_var);
     unify(node->type_var_, ret_var);
   }
-  else {
+  if (func != nullptr) {
     func_type_var = func->type_var();
   }
+  return func_type_var;
+}
 
+// CallExprAST
+void CodeGenPass::process(CallExprAST* node) {
+  logger.set_line_column(node->line_num_, node->column_num_);
+  // push_environment(node->Env);
+  // AutoScope pop_env([node]{ node->Env = pop_environment(); });
+
+  TypeVariable* func_type_var = fn_type_from_call(node);
+  auto func =
+          state_.get_typeclass_impl_function_node(node->Callee,
+                                                  func_type_var);
+
+  if (func) {
+    push_environment(func->type_env_);
+  }
   // Look up the name in the global module table.
   std::stringstream type_name;
+  push_environment(node->Env);
   type_name << node->Callee << " = " << func_type_var->get_name(false);
   std::string mangled_name = type_name.str();
   Function* CalleeF = state_.get_typeclass_impl_function(node->Callee,
                                                          mangled_name);
+
   if (!CalleeF) {
     CalleeF = get_function(mangled_name);
-    if (!CalleeF) {
-      CalleeF = get_function(node->Callee);
-      if (!CalleeF) {
-        std::cout << "mangled name: " << mangled_name << std::endl;
-        logger.error("syntax error", "undefined function referenced");
-        returns (nullptr);
-        return;
-      }
-    }
+  }
+  if (!CalleeF) {
+    CalleeF = get_function(node->Callee);
+  }
+
+  pop_environment();
+  if (func) {
+    pop_environment();
+  }
+
+  if (!CalleeF) {
+    std::cout << "mangled name: " << mangled_name << std::endl;
+    logger.error("syntax error", "undefined function referenced");
+    returns (node, nullptr);
+    return;
   }
 
   // check if number of args matches function prototype
@@ -744,7 +990,7 @@ void CodeGenPass::process(CallExprAST* node) {
     logger.error("error", msg << "function " << node->Callee << " takes "
                               << CalleeF->arg_size() << " argument(s), but "
                               << node->Args.size() << " were given");
-    returns (nullptr);
+    returns (node, nullptr);
     return;
   }
 
@@ -765,12 +1011,71 @@ void CodeGenPass::process(CallExprAST* node) {
 
     arg_values.push_back(arg_bitcast);
     if (!arg_values.back()) {
-      returns (nullptr);
+      returns (node, nullptr);
       return;
     }
   }
 
-  returns (state_.builder.CreateCall(CalleeF, arg_values, "calltmp"));
+  auto ret_val = state_.builder.CreateCall(CalleeF, arg_values, "calltmp");
+  if (ret_val->getType()->isPointerTy()) {
+    // take ownership of memory of returned object
+    free_list_.insert(ret_val);
+  }
+  returns (node, ret_val);
+}
+
+// SizeofExprAST
+void CodeGenPass::process(SizeofExprAST* node) {
+  logger.set_line_column(node->line_num_, node->column_num_);
+  auto val_type = get_value_type_dispatch(node->arg_.get());
+  auto data_layout = new DataLayout(state_.current_module.get());
+  auto alloc_size = data_layout->getTypeAllocSize(val_type);
+  returns (node, ConstantInt::get(state_.llvm_context,
+                                  APInt(64, alloc_size, false)));
+}
+
+// PtrOffsetExprAST
+void CodeGenPass::process(PtrOffsetExprAST* node) {
+  logger.set_line_column(node->line_num_, node->column_num_);
+
+  // get constants for our indices
+  auto el_idx0 = ConstantInt::get(state_.llvm_context,
+                                  APInt(/*nbits*/64, 0, /*is_signed*/false));
+
+  node->arg_->set_as_lvalue();
+  node->arg_->run_pass(this);
+  Value* l_value = result();
+  if (!l_value) {
+    return;
+  }
+  l_value = state_.builder.CreateLoad(l_value);
+
+  node->offset_->run_pass(this);
+  Value* offset = result();
+  if (!offset) {
+    return;
+  }
+
+  std::vector<Value*> indices;
+  indices.push_back(offset);
+
+  auto arg_type = get_value_type_dispatch(node);
+  l_value = state_.builder.CreateBitOrPointerCast(
+                                    l_value,
+                                    arg_type->getPointerTo(),
+                                    l_value->getName() + ".bitcast");
+
+  // grab pointer to offset
+  Value* offset_ptr = state_.builder.CreateGEP(arg_type, l_value,
+                                               indices);
+
+  auto offset_val = offset_ptr;
+  // if rvalue, dereference pointer to load obj->field[index]
+  if (!node->is_lvalue) {
+    offset_val = state_.builder.CreateLoad(offset_ptr);
+  }
+
+  returns (node, offset_val);
 }
 
 // PrototypeAST
@@ -793,6 +1098,17 @@ void CodeGenPass::process(PrototypeAST* node) {
     }
     else if (type == StringType) {
       arg_types.push_back(Type::getInt8PtrTy(state_.llvm_context));
+    }
+    else if (is_pointer_type(type)) {
+      auto ptr_type = get_type_of_pointer(type);
+      auto storage_type = get_value_type(ptr_type, is_boxed_type(ptr_type));
+      storage_type = PointerType::get(storage_type, 0);
+      arg_types.push_back(storage_type);
+    }
+    else if (type == CPointerType) {
+      auto ptr_type = Type::getVoidTy(state_.llvm_context);
+      auto storage_type = PointerType::get(ptr_type, 0);
+      arg_types.push_back(storage_type);
     }
     else if (auto arg_type = get_value_type(type, is_boxed_type(type))) {
       if (!arg_type->isPointerTy()) {
@@ -822,7 +1138,21 @@ void CodeGenPass::process(PrototypeAST* node) {
     return_type = Type::getInt8PtrTy(state_.llvm_context);
   }
   else if (ret_type == UnitType) {
-    return_type = get_value_type(ret_type, is_boxed_type(ret_type));
+    return_type = Type::getVoidTy(state_.llvm_context);
+    // return_type = get_value_type(ret_type, is_boxed_type(ret_type));
+  }
+  else if (is_pointer_type(ret_type)) {
+    auto ptr_type = get_type_of_pointer(ret_type);
+    return_type = get_value_type(ptr_type, is_boxed_type(ptr_type));
+    if (!return_type) {
+      return_type = Type::getVoidTy(state_.llvm_context);
+    }
+    return_type = PointerType::get(return_type, 0);
+  }
+  else if (ret_type == CPointerType) {
+    auto ptr_type = Type::getVoidTy(state_.llvm_context);
+    auto storage_type = PointerType::get(ptr_type, 0);
+    return_type = storage_type;
   }
   else if (auto arg_type = get_value_type(ret_type, is_boxed_type(ret_type))) {
     if (!arg_type->isPointerTy()) {
@@ -840,19 +1170,28 @@ void CodeGenPass::process(PrototypeAST* node) {
       Function::Create(function_type, Function::ExternalLinkage, node->Name,
                        state_.current_module.get());
 
-  // current_module_->dump();
   // set names for all arguments
   unsigned Idx = 0;
   for (auto &Arg : function->args()) {
     Arg.setName(node->Args[Idx++]);
   }
 
-  returns (function);
+  returns (nullptr, function);
 }
 
 // FunctionAST
 void CodeGenPass::process(FunctionAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
+  moved_vars_.clear();
+  child_mem_list_.clear();
+
+  push_environment(node->type_env_);
+  AutoScope pop_env([this, node]{
+      node->type_env_ = pop_environment();
+      // TODO: this can get stomped on when processing dependencies
+      //       causing a memory leak in some cases
+      free_list_.clear();
+    });
 
   if (state_.function_envs.find(node->Proto->getName()) !=
                                 state_.function_envs.end()) {
@@ -872,8 +1211,36 @@ void CodeGenPass::process(FunctionAST* node) {
       std::string mangled_name = type_name.str();
       if (state_.function_protos.find(mangled_name) !=
           state_.function_protos.end()) {
+        // explicitly allow shadowing delete implementation
+        if (node->Proto->getName() != "delete") {
+          pop_environment();
+          continue;
+        }
+      }
+
+      // process any functions we depend on first
+      for (auto dependency : node->dependencies_) {
+        auto fun_name = node->Proto->getName();
+        // guard against recursion
+        if (dependency->Callee == fun_name) {
+          continue;
+        }
+        // TODO: this needs to pass in the function type
+
+        auto fn_type = fn_type_from_call(dependency);
+        push_environment(dependency->Env);
+        auto dep_func =
+                state_.get_typeclass_impl_function_node(dependency->Callee,
+                                                        fn_type);
         pop_environment();
-        continue;
+        if (dep_func == nullptr) {
+          dep_func = state_.all_functions[dependency->Callee].get();
+          if (dep_func == nullptr) {
+            // already processed
+            continue;
+          }
+        }
+        process(dep_func);
       }
 
       auto protoAST = *node->Proto;
@@ -883,7 +1250,7 @@ void CodeGenPass::process(FunctionAST* node) {
         std::ostringstream msg;
         logger.error("codegen error", msg << "could't find function matching "
                                           << mangled_name);
-        returns (nullptr);
+        returns (nullptr, nullptr);
         return;
       }
 
@@ -905,20 +1272,27 @@ void CodeGenPass::process(FunctionAST* node) {
 
         // Add arguments to variable symbol table.
         state_.named_values[arg.getName()] = alloca;
+        borrowed_list_.insert(alloca);
         // named_values_[arg.getName()] = &arg;
       }
 
       node->Body->run_pass(this);
       if (Value* return_val = result()) {
         // Finish off the function.
-        state_.builder.CreateRet(return_val);
+        auto ret_var = get_function_return_type(node->type_var());
+        if (ret_var == UnitType) {
+          state_.builder.CreateRetVoid();
+        }
+        else {
+          state_.builder.CreateRet(return_val);
+        }
 
-        // // Validate the generated code, checking for consistency.
+        // Validate the generated code, checking for consistency.
         // if (verifyFunction(*function, &errs())) {
-        //   state_.current_module_->dump();
-        //   logger.error("error", "code generation for function failed");
-        //   returns (nullptr);
-        //   return;
+        //   state_.current_module->dump();
+          // logger.error("error", "code generation for function failed");
+          // returns (nullptr, nullptr);
+          // return;
         // }
 
         // Run the optimizer on the function.
@@ -931,33 +1305,93 @@ void CodeGenPass::process(FunctionAST* node) {
         // }
         // }
 
+        if (!in_destructor_) {
+          in_destructor_ = true;
+          for (auto destructor : destructor_list_) {
+            auto fn_name = destructor.first;
+            auto fn_types = destructor.second;
+
+            if (fn_name == node->Proto->Name) {
+              continue;
+            }
+
+            for (auto fn_type : fn_types) {
+              auto dep_func = state_.get_typeclass_impl_function_node(fn_name,
+                                                                      fn_type);
+              // auto dep_func = state_.all_functions[fn_name].get();
+              if (dep_func == nullptr) {
+                continue;
+              }
+              process(dep_func);
+            }
+          }
+          destructor_list_.clear();
+          in_destructor_ = false;
+        }
+
         func_result = function;
       }
       if (func_result == nullptr) {
         logger.error("internal error",
                      "encountered unhandled error during code generation");
-        returns (nullptr);
+        returns (nullptr, nullptr);
         return;
       }
       pop_environment();
     }
-    returns (func_result);
+    returns (nullptr, func_result);
     return;
   }
-  // else must be an anonymous expression, or unused function
-  if (node->Proto->getName() != "top-level") {
+  // else must be a builtin, or unused function
+  static std::set<std::string> builtins = {"top-level"};
+  if (builtins.count(node->Proto->getName()) == 0) {
     // not an error, the function is simply not called anywhere
-    returns (nullptr);
+    returns (nullptr, nullptr);
     return;
   }
 
-  // transfer ownership of the prototype to the state_.function_protos map,
-  // but keep a reference to it for use below
+  // if (!is_concrete_type(node->type_var())) {
+  //   return;
+  // }
+
+  std::stringstream type_name;
+  type_name << node->Proto->getName()
+            << " = "
+            << node->type_var()->get_name();
+  std::string mangled_name = type_name.str();
+
+  // process any functions we depend on first
+  for (auto dependency : node->dependencies_) {
+    auto fun_name = node->Proto->getName();
+    // guard against recursion
+    if (dependency->Callee == fun_name) {
+      continue;
+    }
+
+    auto fn_type = fn_type_from_call(dependency);
+    push_environment(dependency->Env);
+    auto dep_func =
+            state_.get_typeclass_impl_function_node(dependency->Callee,
+                                                    fn_type);
+    pop_environment();
+    if (dep_func == nullptr) {
+      dep_func = state_.all_functions[dependency->Callee].get();
+      if (dep_func == nullptr) {
+        // already processed
+        continue;
+      }
+    }
+    process(dep_func);
+  }
+
   auto &protoAST = *node->Proto;
-  state_.function_protos[node->Proto->getName()] = std::move(node->Proto);
-  Function *function = get_function(protoAST.getName());
+  state_.function_protos[mangled_name] = copy_proto(protoAST, mangled_name);
+  Function* function = get_function(mangled_name);
   if (!function) {
-    returns (nullptr);
+    std::ostringstream msg;
+    logger.error("codegen error", msg << "could't find function matching "
+                                      << mangled_name);
+    returns (nullptr, nullptr);
     return;
   }
 
@@ -968,11 +1402,31 @@ void CodeGenPass::process(FunctionAST* node) {
   // store the function arguments in this map
   // TODO: this should be a stack of scopes
   state_.named_values.clear();
+  for (auto &arg : function->args()) {
+    // Create an alloca for this variable.
+    auto tvar = node->param_name_to_tvar_[arg.getName()];
+    AllocaInst* alloca = create_entry_block_alloca(function, arg.getName(),
+                                                    tvar, nullptr, true);
+
+    // Store the initial value into the alloca.
+    state_.builder.CreateStore(&arg, alloca);
+
+    // Add arguments to variable symbol table.
+    state_.named_values[arg.getName()] = alloca;
+    borrowed_list_.insert(alloca);
+    // named_values_[arg.getName()] = &arg;
+  }
 
   node->Body->run_pass(this);
   if (Value* return_val = result()) {
     // finish off the function
-    state_.builder.CreateRet(return_val);
+    auto ret_var = get_function_return_type(node->type_var());
+    if (ret_var == UnitType) {
+      state_.builder.CreateRetVoid();
+    }
+    else {
+      state_.builder.CreateRet(return_val);
+    }
 
     // Validate the generated code, checking for consistency.
     // verifyFunction(*function, &errs());
@@ -984,13 +1438,31 @@ void CodeGenPass::process(FunctionAST* node) {
     //   current_module_->dump();
     // }
 
-    returns (function);
+    if (!in_destructor_) {
+      in_destructor_ = true;
+      for (auto destructor : destructor_list_) {
+        auto fn_name = destructor.first;
+        auto fn_types = destructor.second;
+        for (auto fn_type : fn_types) {
+          auto dep_func = state_.get_typeclass_impl_function_node(fn_name, fn_type);
+          // auto dep_func = state_.all_functions[fn_name].get();
+          if (dep_func == nullptr) {
+            continue;
+          }
+          process(dep_func);
+        }
+      }
+      destructor_list_.clear();
+      in_destructor_ = false;
+    }
+
+    returns (nullptr, function);
     return;
   }
 
   // error reading body, remove function from module
   function->eraseFromParent();
-  returns (nullptr);
+  returns (nullptr, nullptr);
 }
 
 // TypeAST
@@ -1022,14 +1494,162 @@ void CodeGenPass::process(TypeclassImplAST* node) {
 
 CodeGenPass::CodeGenPass(ModuleState &state)
   : state_(state), case_gen_pass_(this, state), last_value_(nullptr),
-    case_state_push_count(0)
+    case_state_push_count(0), in_destructor_(false), in_constructor_(false)
 {
+}
+
+void CodeGenPass::free_obj(Value* obj_ptr, bool is_child_obj) {
+  auto bb = state_.builder.GetInsertBlock();
+  auto &entry_bb = state_.builder.GetInsertBlock()->getParent()->getEntryBlock();
+  // if we're recursing, the parent was visible, so this must be as well.
+  // otherwise, make sure we can actually reach here though the
+  // path that created obj_ptr
+  bool is_visible = is_child_obj
+                    || obj_ptr->isUsedInBasicBlock(bb)
+                    || obj_ptr->isUsedInBasicBlock(&entry_bb);
+
+  // walk back through predecessor blocks
+  if (!is_visible) {
+    for (auto predecessor : predecessors(bb)) {
+      is_visible = obj_ptr->isUsedInBasicBlock(predecessor);
+      if (is_visible) {
+        break;
+      }
+    }
+  }
+
+  if (!is_visible) {
+    return;
+  }
+
+  if (alloc_types_.find(obj_ptr) != alloc_types_.end()) {
+    // capture type environment for generating polymorphic destructors
+    TypeEnv type_env;
+    push_environment(type_env);
+    bool popped_env = false;
+    AutoScope pop_env([this, &popped_env]{
+        if (!popped_env) {
+          pop_environment();
+        }
+      });
+
+    auto obj_type = resolve_variable(alloc_types_[obj_ptr]);
+    if (obj_type->type_operator_) {
+      auto variant_type =
+        get_type_from_constructor(obj_type->type_operator_->type_constructor_);
+      // if (variant_type) {
+      //   obj_type = variant_type;
+      // }
+
+      if (variant_type) {
+        variant_type = flatten_variable(variant_type);
+        get_fresh_variable(variant_type);
+        unify(variant_type, obj_type);
+        obj_type = variant_type;
+      }
+    }
+
+    std::vector<TypeVariable*> arg_types;
+    arg_types.push_back(obj_type);
+    TypeVariable* func_type_var = build_function_type(arg_types,
+                                                      bon::UnitType);
+
+    auto fn_node = state_.get_typeclass_impl_function_node("delete",
+                                                        func_type_var);
+    if (fn_node) {
+      // func_type_var = func->type_var();
+
+      std::stringstream type_name;
+      type_name << "delete" << " = " << func_type_var->get_name();
+      std::string mangled_name = type_name.str();
+
+      auto protoAST = *fn_node->Proto;
+      state_.function_protos[mangled_name] = copy_proto(protoAST, mangled_name);
+
+      Function* del_func = state_.get_typeclass_impl_function("delete",
+                                                              mangled_name);
+      if (del_func) {
+        state_.builder.CreateCall(del_func, obj_ptr, "delete");
+      }
+      else {
+        del_func = get_function(mangled_name);
+        if (del_func) {
+          unify(func_type_var, fn_node->type_var());
+          type_env = pop_environment();
+          popped_env = true;
+          state_.function_envs["delete"].push_back(std::make_pair(mangled_name,
+                                                                  type_env));
+          destructor_list_["delete"].push_back(func_type_var);
+          state_.builder.CreateCall(del_func, obj_ptr, "delete");
+        }
+      }
+    }
+  }
+
+  bb = state_.builder.GetInsertBlock();
+  auto struct_type = obj_ptr->getType();
+  assert(struct_type->isArrayTy());
+  struct_type = struct_type->getArrayElementType();
+
+  // recursively free any pointers within object
+  // TODO: this only works if structure is statically known,
+  //       so this doesn't work for recursive types like list.
+  //       a recursive object needs to know how to free itself,
+  //       so we need to generate code for that
+  for (size_t i = 0; i < struct_type->getStructNumElements(); ++i) {
+    if (struct_type->getStructElementType(i)->isPointerTy()
+        &&
+        struct_type->getStructElementType(i)->getArrayElementType()->isStructTy()) {
+      // get constants for our indices
+      auto el_idx0 = ConstantInt::get(state_.llvm_context,
+                                      APInt(/*nbits*/32, 0,
+                                      /*is_signed*/false));
+      auto el_idx1 = ConstantInt::get(state_.llvm_context,
+                                      APInt(/*nbits*/32, i,
+                                      /*is_signed*/false));
+
+      // first index (0) dereferences pointer to struct,
+      // second index (i) points at constructor field
+      std::vector<Value*> indices;
+      indices.push_back(el_idx0);
+      indices.push_back(el_idx1);
+
+      // grab pointer to field index for variant we're matching against
+      Value* patt_type_ptr = state_.builder.CreateGEP(struct_type, obj_ptr,
+                                                      indices);
+      patt_type_ptr = state_.builder.CreateLoad(patt_type_ptr);
+      // make sure to free any fields this object might have
+      free_obj(patt_type_ptr, true);
+    }
+  }
+
+  if (struct_type->isStructTy()) {
+    auto free_inst = CallInst::CreateFree(obj_ptr, bb);
+    state_.builder.Insert(free_inst);
+  }
 }
 
 // we need a way to retrieve the output of the last instruction
 // so we cache the result to use as a return value
-void CodeGenPass::returns(Value* value) {
+void CodeGenPass::returns(ExprAST* node, Value* value) {
   assert(last_value_ == nullptr);
+  last_value_ = value;
+  if (node && node->ends_scope_) {
+    bon::logger.set_line_column(node->line_num_, node->column_num_);
+    auto var = dynamic_cast<VariableExprAST*>(node);
+    for (auto& ptr : free_list_) {
+      if (ptr != value) {
+        if (var != nullptr) {
+          if (ptr != tracked_allocs_[var->Name]) {
+            free_obj(ptr, false);
+          }
+        }
+        else {
+          free_obj(ptr, false);
+        }
+      }
+    }
+  }
   last_value_ = value;
 }
 
@@ -1054,6 +1674,19 @@ Type* CodeGenPass::get_value_type(TypeVariable* type_var, bool ptr_type) {
     }
     else if (type_var == StringType) {
       return Type::getInt8PtrTy(state_.llvm_context);
+    }
+    else if (is_pointer_type(type_var)) {
+      auto ptr_type = get_type_of_pointer(type_var);
+      auto ret_type = get_value_type(ptr_type, is_boxed_type(ptr_type));
+      if (!ret_type) {
+        ret_type = Type::getVoidTy(state_.llvm_context);
+      }
+      return PointerType::get(ret_type, 0);
+    }
+    else if (type_var == CPointerType) {
+      auto ptr_type = Type::getVoidTy(state_.llvm_context);
+      auto storage_type = PointerType::get(ptr_type, 0);
+      return storage_type;
     }
     else if (auto val_type = get_value_type(tcon_operator, type_var)) {
       auto tname = type_var->get_name();
@@ -1153,6 +1786,17 @@ AllocaInst* CodeGenPass::create_entry_block_alloca(Function* function,
     return TmpB.CreateAlloca(Type::getInt8PtrTy(state_.llvm_context), 0,
                             VarName.c_str());
   }
+  else if (is_pointer_type(type_var)) {
+    auto ptr_type = get_type_of_pointer(type_var);
+    auto storage_type = get_value_type(ptr_type, is_boxed_type(ptr_type));
+    storage_type = PointerType::get(storage_type, 0);
+    return TmpB.CreateAlloca(storage_type, 0, VarName.c_str());
+  }
+  else if (type_var == CPointerType) {
+    auto ptr_type = Type::getVoidTy(state_.llvm_context);
+    auto storage_type = PointerType::get(ptr_type, 0);
+    return TmpB.CreateAlloca(storage_type, 0, VarName.c_str());
+  }
   else if (var_expr) {
     auto val_type = get_value_type_dispatch(var_expr);
     if (use_ptr && !val_type->isPointerTy()) {
@@ -1166,13 +1810,8 @@ AllocaInst* CodeGenPass::create_entry_block_alloca(Function* function,
   else if (auto val_type = get_value_type(tcon_operator, type_var)) {
     if (use_ptr && !val_type->isPointerTy()) {
       val_type = PointerType::get(val_type, 0);
-      return TmpB.CreateAlloca(val_type, 0, VarName.c_str());
     }
-    else {
-      // shouldn't ever get here
-      assert(false);
-      return TmpB.CreateAlloca(val_type, 0, VarName.c_str());
-    }
+    return TmpB.CreateAlloca(val_type, 0, VarName.c_str());
   }
   else {
     std::ostringstream msg;
@@ -1304,15 +1943,15 @@ void CaseGenPass::process(StringExprAST* node) {
   call_args.push_back(pattern_);
 
   // lookup string equality function
-  auto string_cmp = codegen_->get_function("str_eq");
+  auto string_cmp = codegen_->get_function("cstreq");
   if (!string_cmp) {
     std::ostringstream msg;
-    logger.error("internal error", msg << "missing str_eq implementation");
+    logger.error("internal error", msg << "missing cstreq implementation");
     returns (nullptr);
     return;
   }
 
-  returns (state_.builder.CreateCall(string_cmp, call_args, "str_eq"));
+  returns (state_.builder.CreateCall(string_cmp, call_args, "cstreq"));
 }
 
 // BoolExprAST
@@ -1524,6 +2163,10 @@ void CaseGenPass::process(BinaryExprAST* node) {
 void CaseGenPass::process(IfExprAST* node) {
 }
 
+// WhileExprAST
+void CaseGenPass::process(WhileExprAST* node) {
+}
+
 // MatchCaseExprAST
 void CaseGenPass::process(MatchCaseExprAST* node) {
 }
@@ -1534,6 +2177,24 @@ void CaseGenPass::process(MatchExprAST* node) {
 
 // CallExprAST
 void CaseGenPass::process(CallExprAST* node) {
+}
+
+// SizeofExprAST
+void CaseGenPass::process(SizeofExprAST* node) {
+  node->run_pass(codegen_);
+  Value* num_value = codegen_->result();
+  returns (state_.builder.CreateICmpEQ(num_value, pattern_, "cmptmp"));
+}
+
+// PtrOffsetExprAST
+void CaseGenPass::process(PtrOffsetExprAST* node) {
+  // TODO: this will depend on the type being pointed to.
+  //       need an Eq typeclass
+  bon::logger.error("error",
+                    "pattern match on array index not currently supported.");
+  // node->run_pass(codegen_);
+  // Value* value = codegen_->result();
+  // returns (state_.builder.CreateICmpEQ(value, pattern_, "cmptmp"));
 }
 
 // PrototypeAST

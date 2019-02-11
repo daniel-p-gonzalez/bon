@@ -1,0 +1,1 @@
+cdef get_time() -> int

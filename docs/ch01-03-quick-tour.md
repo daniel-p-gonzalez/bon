@@ -25,7 +25,7 @@ You can introduce local variables into functions with the assignment operator:
 ```ruby
 def noisy_square(x)
     y = x * x
-    print(to_string(x) ++ " squared is " ++ to_string(y))
+    print(str(x) ++ " squared is " ++ str(y))
     return y
 end
 ```
@@ -103,11 +103,11 @@ def add(x, y)
     return z
 end
 
-print("Calling 'identity' with a number: " ++ to_string(identity(1)))
+print("Calling 'identity' with a number: " ++ str(identity(1)))
 print("Calling 'identity' with a string: " ++ identity("hello!"))
 
-print("Calling 'add' with integers: " ++ to_string(add(5, 10)))
-print("Calling 'add' with floats: " ++ to_string(add(19.57, 20.18)))
+print("Calling 'add' with integers: " ++ str(add(5, 10)))
+print("Calling 'add' with floats: " ++ str(add(19.57, 20.18)))
 ```
 
 The output:
@@ -188,19 +188,113 @@ end
 def main()
   print("Test of typeclasses:")
   p = Point2D(2.0, 1.5)
-  print(norm(p))
+  print(p.norm())
   p2 = Point3D(2.0, 1.5, 3.0)
-  print(norm(p2))
+  print(p2.norm())
 end
 
 main()
+```
+
+One thing in the above example which we haven't yet discussed is the use of the syntactic sugar `p.norm()`. This is identical to calling the function as norm(p), and works for passing the first argument of any function (not just typeclass methods).
+
+Typeclass allow us to overload more than one parameter, something typically referred to as [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch):
+
+Filename: multiple_dispatch.bon
+
+```ruby
+# define a simple typeclass "MultiDispatch" with a single method "foo"
+#  which takes two parameters with generic types
+class MultiDispatch<T1, T2>
+  def foo(a:T1, b:T2) -> ();
+end
+
+# implement for a:int, b:float
+impl MultiDispatch<int, float>
+  def foo(a:int, b:float) -> ()
+    print("Got an int: " ++ str(a) ++ ", and a float: " ++ str(b))
+  end
+end
+
+# implement for a:string, b:int
+impl MultiDispatch<string, int>
+  def foo(a:string, b:int) -> ()
+    print("Got an string: " ++ str(a) ++ ", and an int: " ++ str(b))
+  end
+end
+
+# this can be called with any pair of types for which we implemented
+# method foo of the MultiDispatch typeclass
+def some_function(a, b)
+  foo(a,b)
+end
+
+def main() -> ()
+  some_function(5, 10.0)
+  some_function("Hello, World!", 10)
+
+  return ()
+end
+
+main()
+```
+
+The output:
+```bash
+Got an int: 5, and a float: 10
+Got an string: Hello, World!, and an int: 10
+```
+
+Here are some typeclasses within the stdlib which are useful to implement for custom types:
+
+```ruby
+# to ensure memory safety, we can define a custom behavior
+#  for when we access a sequence (e.g. vector) out of bounds:
+impl BoundsCheck<my_type>
+  def out_of_bounds(default_value:my_type) -> my_type
+    # let's just fail hard if we index out of bounds:
+    print("Accessed array out of bounds!")
+    exit(-1)
+    # won't get here
+    return default_value
+  end
+end
+
+# called when freeing memory allocated on the heap:
+impl Object<vec>
+  def delete(self:vec) -> ()
+    print("deleting vector with size: " ++
+          str(self.size) ++
+          " and capacity: " ++ str(self.capacity))
+  end
+end
+
+# implementing equality (==) operator for a custom type:
+type color
+  Cyan
+  Magenta
+  Yellow
+  Black
+end
+
+impl Eq<color>
+  def operator==(a:color, b:color) -> bool
+    match (a,b)
+      (Cyan, Cyan) => true
+      (Magenta, Magenta) => true
+      (Yellow, Yellow) => true
+      (Black, Black) => true
+      _ => false
+    end
+  end
+end
 ```
 
 ### Variants
 
 The power of pattern matching becomes apparent when we would like to constrain our program logic to respect the uncertain nature of our program state. As an example, if the user of our program requests a non-existent file, we have a few options. Some of the more common approaches are returning a null pointer, or an error code.
 
-To handle situations like this in Bon, we use either an "option" type, or the "result" type.
+To handle situations like this in Bon, we can use either an "option" type, or the "result" type.
 
 The option type is defined as:
 
@@ -227,128 +321,62 @@ match x
 end
 ```
 
-Using this `option` type allows us to ask the compiler to enforce safe access to data, rather than relying on proper use of conventions (for example remembering to check for null pointers before dereferencing them). The usefulness of variants extends beyond simple types like `option` however, which we'll see when we look at lists next.
+Using this `option` type allows us to ask the compiler to enforce safe access to data, rather than relying on proper use of conventions (for example remembering to check for null pointers before dereferencing them). The usefulness of variants extends beyond simple types like `option` however, which we'll look at in a future chapter on algebraic data types.
 
-### Lists
+### Vectors
 
-You can define a list like so:
+You can define a vector (dynamic array) like so:
 
 ```ruby
 x = [1,4,5,1]
-# alternatively, using :: (called the "cons" operator), and [] (the "empty" list) marking the end
-x = 1 :: 4 :: 5 :: 1 :: []
 ```
 
-Obviously the second form is more cumbersome, but in the context of pattern matching it can be very useful.
-
-Note that `::` is right-associative, meaning that it effectively parses from right to left. You can think of the left-hand side of the `::` as the head, and everything to the right as the tail (or "rest") of the list. When the compiler parses this expression, it starts by constructing the list `1 :: []`, followed by `5 :: (1 :: [])`, and so on until we have `[1,4,5,1]`.
-
-Here are some examples of pattern matching with lists:
-
-Filename: lists.bon
-
-```ocaml
-def list_match(x)
-  match x
-    [] => print("Found empty list")
-    [5] => print("Found 5")
-    10::[] => print("Found 10")
-    [1,2,3] => print("Found [1,2,3]")
-    hd :: snd :: [] => print("Found list with 2 elements: " ++ to_string(hd) ++ ", " ++ to_string(snd))
-    hd :: tl => print("Using 'hd :: tl' match. Head is: " ++ to_string(hd))
-  end
-end
-
-list_match([])
-list_match([5])
-list_match([10])
-list_match([15])
-list_match([1,2,3])
-list_match([20,25])
-list_match([10,5,1])
-```
-
-The output shouldn't be too surprising:
-
-```bash
-$ bon lists.bon
-Found empty list
-Found 5
-Found 10
-Using 'hd :: tl' match. Head is: 15
-Found [1,2,3]
-Found list with 2 elements: 20, 25
-Using 'hd :: tl' match. Head is: 10
-```
-
-Note that `10::[]` matches a list with a single element `10`, whereas `hd :: tl` matches any head followed by any tail, and so `[10,5,1]` matches to this latter pattern instead of the former.
-
-To concatenate lists together, you use the ++ operator:
-
-```haskell
-[1,2,3,4] ++ [5,6,7,8]
-```
-
-Under the covers, lists are implemented within the language as a recursive variant type (with syntactic sugar added for `::` and `[]`):
-
-```ocaml
-type list<a>
-    Empty
-    Cons(a, list)
+Here are some examples of functionality available to vectors:
+```ruby
+# indexing an element
+x[i]
+# getting the current length of the vector
+x.len()
+# swapping two elements of the vector
+x.swap(0,2)
+# guarded indexing
+y = x.at(5)
+match y
+  Some(a) => print(a)
+  None => print("Index out of bounds!")
 end
 ```
 
-You can see some more usage of pattern matching in the implementation of list concatenation:
+As Bon is still in early development, the only loop construct currently available is the while loop, which can be used to iterate over the vector:
 
-```ocaml
-impl Concat<list>
-  def operator++(lhs:list, rhs:list) -> list
-    match lhs
-      [] => rhs
-      hd :: tl => hd :: (tl ++ rhs)
-    end
-  end
+```ruby
+i = 0
+while i < v.len()
+  print(v[i])
+  i = i + 1
 end
 ```
 
-Let's try something more interesting using everything we've learned about lists. Here is an implementation of insertion sort to study:
+As another example, here is a simple implementation of insertion sort:
 
-Filename: sort.bon
-
-```ocaml
-def insert(element, lst)
-    match lst
-        [] => [element]
-        head :: tail =>
-            if head > element
-                element :: lst
-            else
-                head :: insert(element, tail)
-            end
+```ruby
+def insertion_sort(xs)
+    i = 1
+    while i < xs.len()
+        j = i
+        while j > 0 and xs[j-1] > xs[j]
+            xs.swap(j, j-1)
+            j = j - 1
         end
+        i = i + 1
     end
+    return ()
 end
-
-def sort(lst)
-    match lst
-        [] => []
-        head :: tail => insert(head, sort(tail))
-    end
-end
-
-print_list(sort([513, 1, 5, 2] ++ [235, 15, 0, 24]))
-```
-
-And the output:
-
-```bash
-$ bon sort.bon
-[0, 1, 2, 5, 15, 24, 235, 513]
 ```
 
 ### Wrap Up
 
-Finally, let's look at an example that uses everything we've learned up to this point.
+Finally, let's look at an example that uses some of the things we've learned up to this point.
 It's a simple program which prints out a description of a programming language given its capabilities. Try not to take it too seriously!
 
 Filename: languages.bon

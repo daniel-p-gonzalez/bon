@@ -21,6 +21,7 @@ private:
   // precedence for binary operators
   std::map<Token, int> binop_precedence_;
   std::map<std::string, VariableExprAST*> vars_in_scope_;
+  std::vector<CallExprAST*> called_functions_;
   Tokenizer tokenizer_;
   ModuleState &state_;
   // stack of scopes for name mangling
@@ -62,9 +63,16 @@ public:
   std::unique_ptr<ExprAST> parse_value_constructor_expr();
   // variable reference, or function call
   std::unique_ptr<ExprAST> parse_identifier_expr();
+  // sizeof() builtin
+  std::unique_ptr<ExprAST> parse_sizeof_expr();
+  // ptr_offset() builtin
+  std::unique_ptr<ExprAST> parse_ptr_offset_expr();
+  // pattern match expression
   std::unique_ptr<ExprAST> parse_match_expr();
   // 'if' expression 'then' expression 'else' expression
   std::unique_ptr<ExprAST> parse_if_expr();
+  std::unique_ptr<ExprAST> parse_while_loop();
+  // list literal e.g. [1,2,3]
   std::unique_ptr<ExprAST> parse_list_item(std::unique_ptr<ExprAST> head);
   std::unique_ptr<ExprAST> parse_list_constructor();
   // parse primary expression

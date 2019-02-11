@@ -1,0 +1,45 @@
+def insertion_sort(xs)
+    i = 1
+    len = xs.len()
+    while i < len
+        j = i
+        while j > 0 and xs[j-1] > xs[j]
+            xs.swap(j, j-1)
+            j = j - 1
+        end
+        i = i + 1
+    end
+    return ()
+end
+
+def qsort(xs, low, high)
+    mid = low + ((high - low) / 2)
+    pivot = xs[mid]
+    i = low
+    j = high
+    while i <= j
+        while xs[i] < pivot
+            i = i + 1
+        end
+        while xs[j] > pivot
+            j = j - 1
+        end
+        if i <= j
+            xs.swap(i, j)
+            i = i + 1
+            j = j - 1
+        end
+    end
+
+    if low < j
+        qsort(xs, low, j)
+    end
+
+    if i < high
+        qsort(xs, i, high)
+    end
+end
+
+def sort(xs)
+    qsort(xs, 0, xs.len()-1)
+end

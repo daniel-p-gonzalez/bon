@@ -33,6 +33,11 @@ std::string Logger::get_current_file() {
     return current_file_;
 }
 
+void Logger::set_line_column(DocPosition pos) {
+    line_num_ = pos.line;
+    column_num_ = pos.column;
+}
+
 void Logger::set_line_column(size_t line_num, size_t column_num) {
     line_num_ = line_num;
     column_num_ = column_num;
@@ -54,6 +59,17 @@ void Logger::finalize() {
         std::cout << "Succeeded with " << warn_count_ << " warnings and "
                   << error_count_ << " errors." << std::endl;
     }
+}
+
+void Logger::info(std::string type, std::ostream &message_stream) {
+    std::string message =
+        dynamic_cast<std::ostringstream&>(message_stream).str();
+    info(type, message);
+}
+
+void Logger::info(std::string type, std::string message) {
+    const std::string grey = "\x1b[90m";
+    output_message(type, grey, message);
 }
 
 void Logger::warn(std::string type, std::ostream &message_stream) {
@@ -97,7 +113,7 @@ std::string Logger::get_context() {
     size_t i = 0;
     for (std::string line; getline(fin, line); ) {
         ++i;
-        if (i > line_num_) {
+        if (i >= line_num_) {
             return line;
         }
     }

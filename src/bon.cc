@@ -8,6 +8,7 @@ L*----------------------------------------------------------------------------*/
 #include "bonParser.h"
 #include "bonLogger.h"
 #include "bonDebugASTPass.h"
+#include "bonScopeAnalysisPass.h"
 #include "bonTypeAnalysisPass.h"
 #include "bonCodeGenPass.h"
 #include "bonLLVM.h"
@@ -15,6 +16,9 @@ L*----------------------------------------------------------------------------*/
 #include "auto_scope.h"
 #include "term_colors.h"
 #include "optionparser.h"
+
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/LegacyPassManagers.h"
 
 #include <iostream>
 #include <sstream>
@@ -29,13 +33,13 @@ bool DUMP_ASM = false;
 bool VERBOSE_OUTPUT = false;
 int OPTIMIZATION_LEVEL = 3;
 
+std::vector<std::string> s_args;
 
 namespace bon {
 
 // compilation state stored in obj for easier access in compile passes
 ModuleState state_;
 Parser parser_(state_);
-
 
 void init_module_and_passes() {
   // create new module for current file
@@ -47,67 +51,71 @@ void init_module_and_passes() {
   // add pass manager to module for optimizations
   state_.function_pass_manager =
     llvm::make_unique<legacy::FunctionPassManager>(state_.current_module.get());
+  state_.module_pass_manager =
+    llvm::make_unique<legacy::PassManager>();
 
-  // add optimization passes
-  if (OPTIMIZATION_LEVEL >= 1) {
-    state_.function_pass_manager->add(createSROAPass());
+  // add standard optimization passes
+  PassManagerBuilder Builder;
+  Builder.SizeLevel = 0;
+  Builder.OptLevel = OPTIMIZATION_LEVEL;
+  Builder.Inliner = createFunctionInliningPass(OPTIMIZATION_LEVEL, 0);
+  Builder.populateFunctionPassManager(*state_.function_pass_manager);
+  Builder.populateModulePassManager(*state_.module_pass_manager);
+  // Builder.populateLTOPassManager(*state_.module_pass_manager);
 
-    // catch trivial redundancies
-    state_.function_pass_manager->add(createEarlyCSEPass(false));
-
-    // hoist scalars and load expressions
-    state_.function_pass_manager->add(createGVNHoistPass());
-
-    // eliminate common sub-expressions
-    state_.function_pass_manager->add(createGVNPass());
-    state_.function_pass_manager->add(createCFGSimplificationPass());
-
-    state_.function_pass_manager->add(createSpeculativeExecutionPass());
-
-    state_.function_pass_manager->add(createConstantPropagationPass());
-    state_.function_pass_manager->add(createJumpThreadingPass());
-    state_.function_pass_manager->add(createLibCallsShrinkWrapPass());
-    state_.function_pass_manager->add(createCorrelatedValuePropagationPass());
-    state_.function_pass_manager->add(createCFGSimplificationPass());
+  // add additional useful passes
+  if (OPTIMIZATION_LEVEL == 0) {
     state_.function_pass_manager->add(createInstructionCombiningPass());
-    state_.function_pass_manager->add(createAggressiveDCEPass());
-    state_.function_pass_manager->add(createDeadCodeEliminationPass());
-    state_.function_pass_manager->add(createDeadStoreEliminationPass());
-    state_.function_pass_manager->add(createMemCpyOptPass());
-
-    state_.function_pass_manager->add(createPartiallyInlineLibCallsPass());
-
-    // state_.function_pass_manager->add(createPartialInliningPass());
-    // state_.function_pass_manager->add(createFunctionInliningPass(200));
+  }
+  else {
+    state_.function_pass_manager->add(createSpeculativeExecutionPass());
+    state_.function_pass_manager->add(createJumpThreadingPass());
 
     state_.function_pass_manager->add(createTailCallEliminationPass());
 
-    state_.function_pass_manager->add(createReassociatePass());
+    state_.function_pass_manager->add(createLoopSimplifyPass());
+    state_.function_pass_manager->add(createLoopRotatePass());
+    state_.function_pass_manager->add(createLoopUnswitchPass());
+    state_.function_pass_manager->add(createLoopUnrollPass());
+    state_.function_pass_manager->add(createLoopSinkPass());
 
-    state_.function_pass_manager->add(createSLPVectorizerPass());
-
-    // eliminate common sub-expressions
-    state_.function_pass_manager->add(createGVNPass());
-    // simplify control flow graph (e.g. deleting unreachable blocks)
-    state_.function_pass_manager->add(createCFGSimplificationPass());
-    state_.function_pass_manager->add(createPromoteMemoryToRegisterPass());
+    state_.function_pass_manager->add(createInstructionCombiningPass());
   }
 
   state_.function_pass_manager->doInitialization();
 }
 
-bool run_type_analysis() {
+bool run_scope_analysis() {
   // typeclass type analysis
-  TypeAnalysisPass type_analysis_pass(state_);
+  ScopeAnalysisPass scope_analysis_pass(state_);
   for (auto &tclass_entry : state_.typeclasses) {
     auto &tclass = tclass_entry.second;
-    tclass->run_pass(&type_analysis_pass);
+    tclass->run_pass(&scope_analysis_pass);
   }
 
   // function type analysis
   for (auto func_name : state_.function_names) {
     auto &funcAST = state_.all_functions[func_name];
-    funcAST->run_pass(&type_analysis_pass);
+    funcAST->run_pass(&scope_analysis_pass);
+  }
+
+  // top-level type analysis
+  for (auto &funcAST : state_.toplevel_expressions) {
+    funcAST->run_pass(&scope_analysis_pass);
+  }
+
+  if (logger.had_errors()) {
+    logger.finalize();
+    return false;
+  }
+
+  return true;
+}
+
+bool run_type_analysis() {
+  TypeAnalysisPass type_analysis_pass(state_);
+  for (auto func : state_.ordered_functions) {
+    func->run_pass(&type_analysis_pass);
   }
 
   // top-level type analysis
@@ -141,32 +149,11 @@ bool run_codegen() {
         (VERBOSE_OUTPUT && verifyModule(*state_.current_module, &errs()))) {
       state_.current_module->dump();
     }
+    state_.function_pass_manager->doFinalization();
+    state_.module_pass_manager->run(*state_.current_module);
     state_.JIT->addModule(std::move(state_.current_module));
     init_module_and_passes();
   }
-
-  // // typeclass impl code gen
-  // for (auto &tclass_entry : state_.typeclasses) {
-  //   auto &tclass = tclass_entry.second;
-  //   tclass->run_pass(&code_gen_pass);
-  // }
-
-  // // function code gen
-  // for (auto func_name : state_.function_names) {
-  //   auto &funcAST = state_.all_functions[func_name];
-  //   if (funcAST == nullptr) {
-  //     continue;
-  //   }
-  //   funcAST->run_pass(&code_gen_pass);
-  //   if (auto* function_ir = code_gen_pass.result()) {
-  //     if (VERBOSE_OUTPUT && verifyModule(*state_.current_module, &errs())){
-  //       state_.current_module->dump();
-  //     }
-  //     // TODO: module per function was only needed for REPL
-  //     state_.JIT->addModule(std::move(state_.current_module));
-  //     init_module_and_passes();
-  //   }
-  // }
 
   if (logger.had_errors()) {
     logger.finalize();
@@ -179,11 +166,17 @@ bool run_codegen() {
   for (auto &funcAST : state_.toplevel_expressions) {
     funcAST->run_pass(&code_gen_pass);
     if (auto* function_ir = code_gen_pass.result()) {
+      if (DUMP_ASM ||
+          (VERBOSE_OUTPUT && verifyModule(*state_.current_module, &errs()))) {
+        state_.current_module->dump();
+      }
+      state_.function_pass_manager->doFinalization();
+      state_.module_pass_manager->run(*state_.current_module);
       auto H = state_.JIT->addModule(std::move(state_.current_module));
       init_module_and_passes();
 
       // search the JIT for the top-level function we just generated
-      auto func_symbol = state_.JIT->findSymbol("top-level");
+      auto func_symbol = state_.JIT->findSymbol("top-level = () -> ()");
       assert(func_symbol && "Function not found");
 
       // get the symbol's address and cast it to the right type (takes no
@@ -212,6 +205,9 @@ bool compile_file(std::string filename, bool should_run_codegen) {
   if (!should_run_codegen) {
     return true;
   }
+  if (!run_scope_analysis()) {
+    return false;
+  }
   if (!run_type_analysis()) {
     return false;
   }
@@ -225,7 +221,7 @@ bool compile_file(std::string filename, bool should_run_codegen) {
 } // namespace bon
 
 int main(int argc, char* argv[]) {
-enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL };
+enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL, REPL };
   const option::Descriptor usage[] =
   {
     {UNKNOWN, 0, "", "",option::Arg::None,
@@ -246,6 +242,9 @@ enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL };
 
     {OPT_LEVEL, 0, "O", "opt-level", option::Arg::Optional,
       " --opt-level, -O \tSet optimization level (0-3)"},
+
+    {REPL, 0,"","repl",option::Arg::None,
+      "  --repl  \tStart an interactive Bon session." },
 
     {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
                                   "  bon hello.bon\n"
@@ -280,13 +279,17 @@ enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL };
   DUMP_ASM = options[ASM] ? true : false;
   OPTIMIZATION_LEVEL = options[OPT_LEVEL] ?
                        strtoul(options[OPT_LEVEL].arg, nullptr, 10)
-                       : 2;
+                       : 3;
 
   bool unknown_options = false;
   for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next()) {
     std::cout << "Unknown option: "
               << std::string(opt->name,opt->namelen) << "\n";
     unknown_options = true;
+  }
+
+  for (int i = 0; i < parse.nonOptionsCount(); ++i) {
+    s_args.push_back(std::string(parse.nonOption(i)));
   }
 
   if (unknown_options) {
@@ -315,6 +318,9 @@ enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL };
 
   if (filename != "") {
     bon::compile_file(filename, true);
+  }
+  else if (options[REPL]) {
+    bon::compile_file("repl", true);
   }
   else {
     option::printUsage(std::cout, usage);

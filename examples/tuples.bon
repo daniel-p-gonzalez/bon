@@ -1,0 +1,8 @@
+def foo(a, b, c)
+  match (a,b,c)
+    (5, 10, "15") => print("Got 5, 10, \"15\"")
+    _ => print("something else")
+  end
+end
+
+foo(5,10,"15")

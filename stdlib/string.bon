@@ -1,17 +1,84 @@
 cdef print_string(str:string) -> ()
 cdef write_string(str:string) -> ()
-cdef str_concat(a:string, b:string) -> string
-cdef str_eq(str1:string, str2:string) -> bool
+cdef cstrconcat(a:string, b:string) -> string
+cdef cstrcmp(str1:string, str2:string) -> int
+cdef cstreq(str1:string, str2:string) -> bool
+cdef cfind(str:string, substr:string, from_pos:int) -> int
+cdef csubstr(str:string, start:int, num_chars:int) -> string
+cdef cstr_at(str:string, index:int) -> string
+cdef cstrlen(str:string) -> int
+cdef strip(str:string) -> string
+cdef lstrip(str:string) -> string
+cdef rstrip(str:string) -> string
+
+# TODO: change to option type
+def find(str:string, substr:string) -> int
+  cfind(str, substr, 0)
+end
+
+def find_next(str:string, substr:string, from_pos:int) -> int
+  cfind(str, substr, from_pos+1)
+end
+
+def substr(str:string, start:int, num_chars:int) -> string
+  csubstr(str, start, num_chars)
+end
+
+def strlen(str:string) -> int
+  cstrlen(str)
+end
+
+def char(str:string, index:int)
+  csubstr(str, index, 1)
+end
+
+def split(str:string, delim:string)
+  v = []
+  skip_len = delim.strlen()
+  token_start = 0
+  pos = str.find(delim)
+  while pos != -1
+    substr = str.substr(token_start, pos-token_start)
+    v.push(substr)
+    token_start = pos+skip_len
+    pos = str.find_next(delim, pos)
+  end
+  substr = str.substr(token_start, str.strlen()-token_start)
+  v.push(substr)
+  return v
+end
 
 impl Concat<string>
   def operator++(a:string, b:string) -> string
-    str_concat(a,b)
+    cstrconcat(a,b)
   end
 end
 
 impl Eq<string>
   def operator==(a:string, b:string) -> bool
-    str_eq(a,b)
+    cstrcmp(a,b) == 0
+  end
+
+  def operator!=(a:string, b:string) -> bool
+    cstrcmp(a,b) != 0
+  end
+end
+
+impl Ord<string>
+  def operator>(a:string, b:string) -> bool
+    cstrcmp(a,b) > 0
+  end
+
+  def operator<(a:string, b:string) -> bool
+    cstrcmp(a,b) < 0
+  end
+
+  def operator>=(a:string, b:string) -> bool
+    cstrcmp(a,b) >= 0
+  end
+
+  def operator<=(a:string, b:string) -> bool
+    cstrcmp(a,b) <= 0
   end
 end
 
@@ -26,5 +93,12 @@ impl Print<string>
 
   def write(x:string) -> ()
     write_string(x)
+  end
+end
+
+impl BoundsCheck<string>
+  def out_of_bounds(template:string) -> string
+    template
+    return ""
   end
 end

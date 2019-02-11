@@ -28,9 +28,12 @@ public:
   void process(UnaryExprAST* node) override;
   void process(BinaryExprAST* node) override;
   void process(IfExprAST* node) override;
+  void process(WhileExprAST* node) override;
   void process(MatchCaseExprAST* node) override;
   void process(MatchExprAST* node) override;
   void process(CallExprAST* node) override;
+  void process(SizeofExprAST* node) override;
+  void process(PtrOffsetExprAST* node) override;
   void process(PrototypeAST* node) override;
   void process(FunctionAST* node) override;
   void process(TypeAST* node) override;
@@ -69,9 +72,12 @@ public:
   void process(UnaryExprAST* node) override;
   void process(BinaryExprAST* node) override;
   void process(IfExprAST* node) override;
+  void process(WhileExprAST* node) override;
   void process(MatchCaseExprAST* node) override;
   void process(MatchExprAST* node) override;
   void process(CallExprAST* node) override;
+  void process(SizeofExprAST* node) override;
+  void process(PtrOffsetExprAST* node) override;
   void process(PrototypeAST* node) override;
   void process(FunctionAST* node) override;
   void process(TypeAST* node) override;
@@ -84,6 +90,20 @@ private:
   friend CaseGenPass;
   ModuleState &state_;
   CaseGenPass case_gen_pass_;
+  // variable name to line number it was moved on
+  std::map<std::string, DocPosition> moved_vars_;
+  // allocations to free at end of scope
+  std::set<Value*> free_list_;
+  // parameters are borrowed - don't free
+  std::set<Value*> borrowed_list_;
+  std::set<Value*> child_mem_list_;
+  // polymorphic destructors to generate
+  std::map<std::string, std::vector<TypeVariable*>> destructor_list_;
+  // if we're generating destructors, make sure not to recurse
+  bool in_destructor_;
+  // inside codegen for a constructor?
+  // needed for managing memory ownership
+  bool in_constructor_;
 
   struct CaseState {
     Value* pattern;
@@ -113,6 +133,8 @@ private:
 
   Function* get_function(std::string name);
 
+  TypeVariable* fn_type_from_call(CallExprAST* node);
+
   Type* get_value_type_dispatch(ExprAST* node);
   Type* get_value_type(TypeOperator* type_op, TypeVariable* type_var);
   Type* get_value_type(TypeVariable* type_var, bool ptr_type=false);
@@ -130,9 +152,14 @@ private:
                                         TypeVariable* var_type,
                                         ExprAST* var_expr=nullptr,
                                         bool use_ptr=false);
+
+  // free memory associated with constructed object
+  void free_obj(Value* obj_ptr, bool is_child_obj);
+  std::map<std::string, Value*> tracked_allocs_;
+  std::map<Value*, TypeVariable*> alloc_types_;
   // we need a way to retrieve the output of the last instruction
   // so we cache the result to use as a return value
-  void returns(Value* value);
+  void returns(ExprAST* node, Value* value);
   // return value for the last "process" call
   Value* last_value_;
 public:

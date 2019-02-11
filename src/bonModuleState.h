@@ -36,6 +36,7 @@ struct ModuleState {
   std::unique_ptr<Module> current_module;
   std::map<std::string, AllocaInst *> named_values;
   std::unique_ptr<legacy::FunctionPassManager> function_pass_manager;
+  std::unique_ptr<legacy::PassManager> module_pass_manager;
   std::unique_ptr<BonJIT> JIT;
   std::map<std::string, StructType*> struct_map;
 

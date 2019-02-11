@@ -34,7 +34,19 @@ Token Tokenizer::next_token() {
   if (!token_cache.empty()) {
     Token next_tok = token_cache.back();
     token_cache.pop_back();
-    return next_tok;
+
+    if (next_tok == tok_dedent) {
+      if (!skip_next_dedent_) {
+        return tok_dedent;
+      }
+      else {
+        skip_next_dedent_ = false;
+        return next_token();
+      }
+    }
+    else {
+      return next_tok;
+    }
   }
 
   if (last_char_ == '\n') {
@@ -87,7 +99,13 @@ Token Tokenizer::next_token() {
           //  where an entire block is misaligned
           indent_sizes_[indent_level_] = col;
         }
-        return tok_dedent;
+        if (!skip_next_dedent_) {
+          return tok_dedent;
+        }
+        else {
+          skip_next_dedent_ = false;
+          return next_token();
+        }
       }
     }
   }
@@ -110,10 +128,15 @@ Token Tokenizer::next_token() {
   if (last_char_ == '"') {
     identifier_ = "";
     bool last_was_escape = false;
-    while ((last_char_ = next_char()) != '"') {
+    while ((last_char_ = next_char()) != '"' || last_was_escape) {
       if (last_was_escape) {
         if (last_char_ == 'n') {
           identifier_ += '\n';
+          last_was_escape = false;
+          continue;
+        }
+        else if (last_char_ == '\"') {
+          identifier_ += '\"';
           last_was_escape = false;
           continue;
         }
@@ -146,6 +169,8 @@ Token Tokenizer::next_token() {
       return tok_import;
     if (identifier_ == "def")
       return tok_def;
+    if (identifier_ == "new")
+      return tok_new;
     if (identifier_ == "class")
       return tok_class;
     if (identifier_ == "impl")
@@ -158,12 +183,24 @@ Token Tokenizer::next_token() {
       return tok_if;
     if (identifier_ == "then")
       return tok_then;
+    if (identifier_ == "while")
+      return tok_while;
+    if (identifier_ == "do")
+      return tok_do;
     if (identifier_ == "else")
       return tok_else;
     if (identifier_ == "end")
       return tok_end;
+    if (identifier_ == "and")
+      return tok_and;
+    if (identifier_ == "or")
+      return tok_or;
     if (identifier_ == "type")
       return tok_type;
+    if (identifier_ == "sizeof")
+      return tok_sizeof;
+    if (identifier_ == "ptr_offset")
+      return tok_ptr_offset;
     if (identifier_ == "match")
       return tok_match;
     if (identifier_ == "struct")
@@ -291,6 +328,10 @@ Token Tokenizer::next_token() {
       last_char_ = next_char();
       return tok_gteq;
     }
+    else if(last_char_ == '>') {
+      last_char_ = next_char();
+      return tok_rshift;
+    }
     return tok_gt;
   }
 
@@ -301,7 +342,20 @@ Token Tokenizer::next_token() {
       last_char_ = next_char();
       return tok_lteq;
     }
+    else if(last_char_ == '<') {
+      last_char_ = next_char();
+      return tok_lshift;
+    }
     return tok_lt;
+  }
+
+  if (last_char_ == '!') {
+    last_char_ = next_char();
+    if (last_char_ == '=') {
+      last_char_ = next_char();
+      return tok_neq;
+    }
+    return tok_negate;
   }
 
   // double arrow '=>', or equality '=='
@@ -318,15 +372,17 @@ Token Tokenizer::next_token() {
     return tok_assign;
   }
 
-  // "[]" is syntactic sugar for Empty list constructor
+  // "[]" is syntactic sugar for empty vector constructor
   if (last_char_ == '[') {
     do
       last_char_ = next_char();
     while (last_char_ != EOF && isspace(last_char_));
     if (last_char_ == ']') {
       last_char_ = next_char();
-      identifier_ = "Empty";
-      return tok_typeconstructor;
+      identifier_ = "vec";
+      token_cache.push_back(tok_rparen);
+      token_cache.push_back(tok_lparen);
+      return tok_identifier;
     }
     return tok_lbracket;
   }
@@ -353,6 +409,10 @@ Token Tokenizer::next_token() {
       {'-', tok_sub},
       {'*', tok_mul},
       {'/', tok_div},
+      {'%', tok_rem},
+      {'|', tok_bt_or},
+      {'^', tok_bt_xor},
+      {'&', tok_bt_and},
       {':', tok_colon},
       {'(', tok_lparen},
       {')', tok_rparen},
@@ -376,12 +436,17 @@ Tokenizer::Tokenizer() {
   reset();
 }
 
+void Tokenizer::skip_next_dedent() {
+  skip_next_dedent_ = true;
+}
+
 void Tokenizer::reset() {
   last_char_ = -1;
   pos_.line = 0;
   pos_.column = 0;
   col_ = 0;
   at_line_start_ = true;
+  skip_next_dedent_ = false;
   token_cache.clear();
   indent_level_ = 0;
   for (size_t i = 0; i < MAX_INDENTS; ++i) {
@@ -422,6 +487,8 @@ std::string Tokenizer::token_type(Token token) {
       return "<unindent>";
     case tok_def:
       return "'def'";
+    case tok_new:
+      return "'new'";
     case tok_class:
       return "'class'";
     case tok_impl:
@@ -442,6 +509,12 @@ std::string Tokenizer::token_type(Token token) {
       return "<identifier>";
     case tok_if:
       return "'if'";
+    case tok_then:
+      return "'then'";
+    case tok_while:
+      return "'while'";
+    case tok_do:
+      return "'do'";
     case tok_import:
       return "'import'";
     case tok_indent:
@@ -460,6 +533,18 @@ std::string Tokenizer::token_type(Token token) {
       return "'*'";
     case tok_div:
       return "'/'";
+    case tok_rem:
+      return "'%'";
+    case tok_lshift:
+      return "'<<'";
+    case tok_rshift:
+      return "'>>'";
+    case tok_bt_or:
+      return "'|'";
+    case tok_bt_xor:
+      return "'^'";
+    case tok_bt_and:
+      return "'&'";
     case tok_colon:
       return "':'";
     case tok_sep:
@@ -478,6 +563,10 @@ std::string Tokenizer::token_type(Token token) {
       return "'**'";
     case tok_eq:
       return "'=='";
+    case tok_neq:
+      return "'!='";
+    case tok_negate:
+      return "'!'";
     case tok_gt:
       return "'>'";
     case tok_lt:
@@ -488,14 +577,16 @@ std::string Tokenizer::token_type(Token token) {
       return "'<='";
     case tok_assign:
       return "'='";
+    case tok_and:
+      return "'and'";
+    case tok_or:
+      return "'or'";
     case tok_return:
       return "'return'";
     case tok_string:
       return "<string>";
     case tok_struct:
       return "'struct'";
-    case tok_then:
-      return "'then'";
     case tok_true:
       return "'true'";
     case tok_type:

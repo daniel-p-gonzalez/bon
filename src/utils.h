@@ -10,3 +10,4 @@ L*----------------------------------------------------------------------------*/
 extern std::string BON_STDLIB_PATH;
 
 bool file_to_stdin(std::string filename);
+void restore_stdin();

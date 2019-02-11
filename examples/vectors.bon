@@ -1,0 +1,37 @@
+impl Object<vec>
+  def delete(self:vec) -> ()
+    print("deleting vector with size: " ++
+          str(self.size) ++
+          " and capacity: " ++ str(self.capacity))
+  end
+end
+
+def main()
+  v = [5, 10, 15, 25]
+
+  i = 0
+  while i < v.len()
+    print(v[i])
+    i = i + 1
+  end
+
+  match v.at(0)
+    Some(a) => print("v[0]: " ++ str(a))
+    None => print("v[0]: " ++ "index out of bounds")
+  end
+  match v.at(20)
+    Some(a) => print("v[20]: " ++ str(a))
+    None => print("v[20]: " ++ "index out of bounds")
+  end
+
+  v2 = ["this", "is", "a", "string", "array", "."]
+  v2.swap(0, 1)
+  v2.set(5, "?")
+  i = 0
+  while i < v2.len()
+    print(v2[i])
+    i = i + 1
+  end
+end
+
+main()

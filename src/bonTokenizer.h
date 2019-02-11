@@ -5,6 +5,8 @@
 L*----------------------------------------------------------------------------*/
 
 #pragma once
+#include "bonLogger.h"
+
 #include <vector>
 #include <string>
 
@@ -18,6 +20,7 @@ enum Token {
   tok_extern,
   tok_return,
   tok_import,
+  tok_new,
 
   // primary
   tok_identifier,
@@ -40,21 +43,33 @@ enum Token {
   tok_if,
   tok_then,
   tok_else,
+  tok_while,
+  tok_do,
 
   // binary ops
   tok_add,
   tok_sub,
   tok_mul,
   tok_div,
+  tok_rem,
+  tok_lshift,
+  tok_rshift,
+  tok_bt_or,
+  tok_bt_xor,
+  tok_bt_and,
   tok_gt,
   tok_lt,
   tok_eq,
+  tok_neq,
+  tok_negate,
   tok_gteq,
   tok_lteq,
   tok_concat,
   tok_pow,
   tok_cons,
   tok_assign,
+  tok_and,
+  tok_or,
 
   // separator i.e. ';'
   tok_sep,
@@ -68,6 +83,10 @@ enum Token {
   tok_typeconstructor,
   tok_class,
   tok_impl,
+
+  // builtin
+  tok_sizeof,
+  tok_ptr_offset,
 
   // objects
   tok_dot,
@@ -86,12 +105,6 @@ enum Token {
   tok_unknown
 };
 
-struct DocPosition
-{
-  size_t line;
-  size_t column;
-};
-
 class Tokenizer {
 private:
   static constexpr size_t MAX_INDENTS = 20;
@@ -107,6 +120,7 @@ private:
   int last_char_;
   Token current_token_;
   bool at_line_start_;
+  bool skip_next_dedent_;
 
   int next_char();
   Token next_token();
@@ -131,6 +145,7 @@ public:
   Token consume();
   // check the type of the current token
   Token peak();
+  void skip_next_dedent();
 };
 
 } // namespace bon

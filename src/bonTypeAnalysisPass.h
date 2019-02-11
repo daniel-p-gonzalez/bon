@@ -25,9 +25,12 @@ public:
   void process(UnaryExprAST* node) override;
   void process(BinaryExprAST* node) override;
   void process(IfExprAST* node) override;
+  void process(WhileExprAST* node) override;
   void process(MatchCaseExprAST* node) override;
   void process(MatchExprAST* node) override;
   void process(CallExprAST* node) override;
+  void process(SizeofExprAST* node) override;
+  void process(PtrOffsetExprAST* node) override;
   void process(PrototypeAST* node) override;
   void process(FunctionAST* node) override;
   void process(TypeAST* node) override;

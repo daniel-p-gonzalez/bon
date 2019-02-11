@@ -13,16 +13,25 @@ namespace bon {
 
 Parser::Parser(ModuleState &state) : state_(state) {
   // set precedence for binary operators
-  binop_precedence_[tok_assign] =  5;
+  binop_precedence_[tok_assign] =  1;
+  binop_precedence_[tok_or] = 3;
+  binop_precedence_[tok_and] = 5;
+  binop_precedence_[tok_bt_or] = 7;
+  binop_precedence_[tok_bt_xor] = 8;
+  binop_precedence_[tok_bt_and] = 9;
   binop_precedence_[tok_lt] = 10;
   binop_precedence_[tok_gt] = 10;
   binop_precedence_[tok_lteq] = 10;
   binop_precedence_[tok_gteq] = 10;
   binop_precedence_[tok_eq] = 10;
+  binop_precedence_[tok_neq] = 10;
+  binop_precedence_[tok_lshift] = 15;
+  binop_precedence_[tok_rshift] = 15;
   binop_precedence_[tok_add] = 20;
   binop_precedence_[tok_sub] = 20;
   binop_precedence_[tok_mul] = 40;
   binop_precedence_[tok_div] = 40;
+  binop_precedence_[tok_rem] = 40;
   binop_precedence_[tok_cons] = 40;
   binop_precedence_[tok_pow] = 50;
   binop_precedence_[tok_concat] = 60;
@@ -64,8 +73,10 @@ void Parser::parse() {
     case tok_impl:
       if (auto tcls_impl = parse_typeclass_impl()) {
         // add implementation to typeclass
-        state_.typeclasses[tcls_impl->class_name_]->impls.push_back(
-                                                          std::move(tcls_impl));
+        auto & impls = state_.typeclasses[tcls_impl->class_name_]->impls;
+        // allow overriding implementation
+        impls.insert(impls.begin(), std::move(tcls_impl));
+        // impls.push_back(std::move(tcls_impl));
       }
       else {
         // logger.error("failed", "could not parse type impl");
@@ -86,6 +97,7 @@ void Parser::parse() {
       break;
     case tok_import:
       state_.filename = parse_import(state_.filename);
+      logger.set_current_file(state_.filename);
       break;
     default:
       // parse top-level expression into an anonymous function
@@ -104,8 +116,12 @@ void Parser::parse_file(std::string filename) {
   logger.config(20, 100);
   logger.set_current_file(state_.filename);
 
-  if (!file_to_stdin(state_.filename)) {
+  if (filename != "repl" && !file_to_stdin(state_.filename)) {
     return;
+  }
+
+  if (filename == "repl") {
+    restore_stdin();
   }
 
   try {
@@ -257,6 +273,38 @@ std::unique_ptr<ExprAST> Parser::parse_paren_expr() {
   if (!expr_node)
     return nullptr;
 
+  if (tokenizer_.peak() == tok_comma) {
+    // this is a tuple
+    std::vector<std::unique_ptr<ExprAST>> tuple_args;
+    tuple_args.push_back(std::move(expr_node));
+    while (tokenizer_.peak() == tok_comma) {
+      // eat ','
+      tokenizer_.consume();
+      auto expr_node = parse_expression();
+      tuple_args.push_back(std::move(expr_node));
+    }
+
+    if (tokenizer_.peak() != tok_rparen) {
+      bon::logger.set_line_column(line_num, col_num);
+      bon::logger.error("syntax error", "expected matching ')'");
+      return nullptr;
+    }
+    // eat ')'
+    tokenizer_.consume();
+    std::string tuple_name = "Pair";
+    if (tuple_args.size() > 2) {
+      tuple_name = "Tuple";
+      tuple_name += '0' + tuple_args.size();
+    }
+    // TODO: support heap allocated tuples
+    bool heap_alloc = false;
+    return llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
+                                                      tokenizer_.column(),
+                                                      tuple_name,
+                                                      std::move(tuple_args),
+                                                      heap_alloc);
+  }
+
   if (tokenizer_.peak() != tok_rparen) {
     bon::logger.set_line_column(line_num, col_num);
     bon::logger.error("syntax error", "expected matching ')'");
@@ -267,9 +315,16 @@ std::unique_ptr<ExprAST> Parser::parse_paren_expr() {
   return expr_node;
 }
 
-// Variant value constructor
+// object constructor
 // e.g. Some(5)
 std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
+  bool heap_alloc = false;
+  if (tokenizer_.peak() == tok_new) {
+    heap_alloc = true;
+    // eat new
+    tokenizer_.consume();
+  }
+
   std::string constructor_name = tokenizer_.identifier();
 
   size_t col_num = tokenizer_.column();
@@ -285,6 +340,9 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
     // eat ( or ()
     tokenizer_.consume();
   }
+
+  // for allowing line breaks
+  bool indented = false;
   std::vector<std::unique_ptr<ExprAST>> args;
   if (expecting_args) {
     if (tokenizer_.peak() != tok_rparen) {
@@ -309,7 +367,17 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
           tokenizer_.consume();
           return nullptr;
         }
+        // eat ','
         tokenizer_.consume();
+        if (tokenizer_.peak() == tok_indent) {
+          if (indented) {
+            bon::logger.error("syntax error", "misaligned indentation");
+          }
+          indented = true;
+          // eat tok_indent
+          tokenizer_.consume();
+          tokenizer_.skip_next_dedent();
+        }
       }
     }
   }
@@ -321,7 +389,8 @@ std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
 
   return llvm::make_unique<ValueConstructorExprAST>(line_num, col_num,
                                                     constructor_name,
-                                                    std::move(args));
+                                                    std::move(args),
+                                                    heap_alloc);
 }
 
 // variable reference, or function call
@@ -329,65 +398,206 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
   std::string IdName = tokenizer_.identifier();
 
   size_t col_num = tokenizer_.column();
+  auto line_num = tokenizer_.line_number();
   // eat identifier
   tokenizer_.consume();
 
-  auto line_num = tokenizer_.line_number();
   // variable reference
-  if (tokenizer_.peak() != tok_lparen && tokenizer_.peak() != bon::tok_unit) {
+  if (tokenizer_.peak() != tok_lparen &&
+      tokenizer_.peak() != bon::tok_unit &&
+      tokenizer_.peak() != tok_lbracket) {
     auto var_expr = llvm::make_unique<VariableExprAST>(line_num, col_num,
                                                        IdName);
     if (vars_in_scope_.count(IdName) > 0) {
-      bon::unify(vars_in_scope_[IdName]->type_var_, var_expr->type_var_);
+      // bon::unify(vars_in_scope_[IdName]->type_var_, var_expr->type_var_);
+      delete var_expr->type_var_;
+      var_expr->type_var_ = vars_in_scope_[IdName]->type_var_;
     }
     else {
       vars_in_scope_[IdName] = var_expr.get();
+      // var_expr->type_var_->get_name();
     }
     return std::move(var_expr);
   }
 
-  // function call
-  bool expecting_args = tokenizer_.peak() != bon::tok_unit;
-  // eat ( or ()
-  tokenizer_.consume();
-  std::vector<std::unique_ptr<ExprAST>> args;
-  if (expecting_args) {
-    if (tokenizer_.peak() != tok_rparen) {
-      while (true) {
-        auto line_num = tokenizer_.line_number();
-        if (auto arg = parse_expression()) {
-          args.push_back(std::move(arg));
-        }
-        else {
-          return nullptr;
-        }
+  if (tokenizer_.peak() == tok_lbracket) {
+    // index operator
+    auto var_expr = llvm::make_unique<VariableExprAST>(line_num, col_num,
+                                                       IdName);
+    if (vars_in_scope_.count(IdName) > 0) {
+      // bon::unify(vars_in_scope_[IdName]->type_var_, var_expr->type_var_);
+      delete var_expr->type_var_;
+      var_expr->type_var_ = vars_in_scope_[IdName]->type_var_;
+    }
+    else {
+      vars_in_scope_[IdName] = var_expr.get();
+      // var_expr->type_var_->get_name();
+    }
+    // eat '['
+    tokenizer_.consume();
+    std::vector<std::unique_ptr<ExprAST>> args;
+    args.push_back(std::move(var_expr));
+    if (auto arg = parse_expression()) {
+      args.push_back(std::move(arg));
+    }
+    else {
+      bon::logger.set_line_column(line_num, tokenizer_.column());
+      bon::logger.error("syntax error",
+                        "expected Seq index");
+      return nullptr;
+    }
+    // eat ']'
+    tokenizer_.consume();
 
-        if (tokenizer_.peak() == tok_rparen) {
-          break;
-        }
+    auto fn_name = "unsafe_at";
+    auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, fn_name,
+                                                    std::move(args));
+    called_functions_.push_back(call_expr.get());
+    return call_expr;
+  }
+  else {
+    // function call
+    bool expecting_args = tokenizer_.peak() != bon::tok_unit;
+    // eat ( or ()
+    tokenizer_.consume();
+    std::vector<std::unique_ptr<ExprAST>> args;
+    if (expecting_args) {
+      if (tokenizer_.peak() != tok_rparen) {
+        while (true) {
+          auto line_num = tokenizer_.line_number();
+          if (auto arg = parse_expression()) {
+            args.push_back(std::move(arg));
+          }
+          else {
+            return nullptr;
+          }
 
-        if (tokenizer_.peak() != tok_comma) {
-          bon::logger.set_line_column(line_num, tokenizer_.column());
-          bon::logger.error("syntax error",
-                            "expected ')' or ',' in argument list");
-          // eat bad token
+          if (tokenizer_.peak() == tok_rparen) {
+            break;
+          }
+
+          if (tokenizer_.peak() != tok_comma) {
+            bon::logger.set_line_column(line_num, tokenizer_.column());
+            bon::logger.error("syntax error",
+                              "expected ')' or ',' in argument list");
+            // eat bad token
+            tokenizer_.consume();
+            return nullptr;
+          }
+          // eat ','
           tokenizer_.consume();
-          return nullptr;
         }
-        tokenizer_.consume();
       }
     }
+
+    line_num = tokenizer_.line_number();
+    if (expecting_args) {
+      // eat ')'
+      tokenizer_.consume();
+    }
+
+    auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, IdName,
+                                                    std::move(args));
+    called_functions_.push_back(call_expr.get());
+    return call_expr;
   }
 
-  if (expecting_args) {
-    // eat ')'
-    tokenizer_.consume();
-  }
-
-  return llvm::make_unique<CallExprAST>(line_num, col_num, IdName,
-                                        std::move(args));
+  return nullptr;
 }
 
+// sizeof
+std::unique_ptr<ExprAST> Parser::parse_sizeof_expr() {
+  // eat sizeof
+  tokenizer_.consume();
+
+  if (tokenizer_.peak() != tok_lparen) {
+    auto line_num = tokenizer_.line_number();
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected '('");
+    // eat bad token
+    tokenizer_.consume();
+    return nullptr;
+  }
+
+  // eat (
+  tokenizer_.consume();
+  auto arg = parse_expression();
+  if (tokenizer_.peak() != tok_rparen) {
+    auto line_num = tokenizer_.line_number();
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ')'");
+    // eat bad token
+    tokenizer_.consume();
+    return nullptr;
+  }
+
+  // eat ')'
+  tokenizer_.consume();
+
+  return llvm::make_unique<SizeofExprAST>(tokenizer_.line_number(),
+                                          tokenizer_.column(),
+                                          std::move(arg));
+}
+
+// ptr_offset
+std::unique_ptr<ExprAST> Parser::parse_ptr_offset_expr() {
+  auto line_num = tokenizer_.line_number();
+  size_t col_num = tokenizer_.column();
+  // eat ptr_offset
+  tokenizer_.consume();
+
+  if (tokenizer_.peak() != tok_lparen) {
+    auto line_num = tokenizer_.line_number();
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected '('");
+    // eat bad token
+    tokenizer_.consume();
+    return nullptr;
+  }
+
+  // eat (
+  tokenizer_.consume();
+
+  auto arg = parse_expression();
+
+  if (tokenizer_.peak() != tok_comma) {
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ')' or ',' in argument list");
+    // eat bad token
+    tokenizer_.consume();
+    return nullptr;
+  }
+  // eat ','
+  tokenizer_.consume();
+
+  auto offset = parse_expression();
+
+  if (!arg || !offset) {
+    return nullptr;
+  }
+
+  if (tokenizer_.peak() != tok_rparen) {
+    auto line_num = tokenizer_.line_number();
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ')'");
+    // eat bad token
+    tokenizer_.consume();
+    return nullptr;
+  }
+
+  // eat ')'
+  tokenizer_.consume();
+
+  return llvm::make_unique<PtrOffsetExprAST>(tokenizer_.line_number(),
+                                             tokenizer_.column(),
+                                             std::move(arg),
+                                             std::move(offset));
+}
 
 std::unique_ptr<ExprAST> Parser::parse_match_expr() {
   auto line_num = tokenizer_.line_number();
@@ -443,13 +653,14 @@ std::unique_ptr<ExprAST> Parser::parse_match_expr() {
           tokenizer_.consume();
           continue;
         }
+        size_t line_num = tokenizer_.line_number();
         size_t col_num = tokenizer_.column();
         auto next_expr = parse_expression();
         if (!next_expr) {
           return nullptr;
         }
         // build expression sequence
-        case_body = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
+        case_body = llvm::make_unique<BinaryExprAST>(line_num,
                                                      col_num, tok_sep,
                                                      std::move(case_body),
                                                      std::move(next_expr));
@@ -554,14 +765,16 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
         tokenizer_.consume();
         continue;
       }
+      size_t line_num = tokenizer_.line_number();
       size_t col_num = tokenizer_.column();
       auto next_expr = parse_expression();
       if (!next_expr) {
         return nullptr;
       }
       // build expression sequence
-      then_node = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                                   col_num, tok_sep,
+      then_node = llvm::make_unique<BinaryExprAST>(line_num,
+                                                   col_num,
+                                                   tok_sep,
                                                    std::move(then_node),
                                                    std::move(next_expr));
     }
@@ -569,56 +782,56 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
     tokenizer_.consume();
   }
 
-  // TODO: implicit "else" block to support something
-  //       that resembles early return
-  if (tokenizer_.peak() != bon::tok_else) {
-    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
-    bon::logger.error("syntax error", "expected 'else' body");
-    return nullptr;
-  }
+  std::unique_ptr<ExprAST> else_node;
+  if (tokenizer_.peak() == bon::tok_else) {
+    // eat 'else'
+    tokenizer_.consume();
 
-  // eat 'else'
-  tokenizer_.consume();
-
-  if (started_with_indent) {
-    if (tokenizer_.peak() == bon::tok_indent) {
-      // eat expected indent
-      tokenizer_.consume();
-    }
-    else {
-      bon::logger.set_line_column(tokenizer_.line_number(),
-                                  tokenizer_.column());
-      bon::logger.error("syntax error",
-                        "expected newline with indent after 'else'");
-      return nullptr;
-    }
-  }
-
-  auto else_node = parse_expression();
-  if (!else_node) {
-    return nullptr;
-  }
-
-  if (started_with_indent) {
-    while (tokenizer_.peak() != bon::tok_dedent) {
-      // eat optional ';'
-      if (tokenizer_.peak() == tok_sep) {
+    if (started_with_indent) {
+      if (tokenizer_.peak() == bon::tok_indent) {
+        // eat expected indent
         tokenizer_.consume();
-        continue;
       }
-      size_t col_num = tokenizer_.column();
-      auto next_expr = parse_expression();
-      if (!next_expr) {
+      else {
+        bon::logger.set_line_column(tokenizer_.line_number(),
+                                    tokenizer_.column());
+        bon::logger.error("syntax error",
+                          "expected newline with indent after 'else'");
         return nullptr;
       }
-      // build expression sequence
-      else_node = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                                   col_num, tok_sep,
-                                                   std::move(else_node),
-                                                   std::move(next_expr));
     }
-    // eat unindentation
-    tokenizer_.consume();
+
+    else_node = parse_expression();
+    if (!else_node) {
+      return nullptr;
+    }
+
+    if (started_with_indent) {
+      while (tokenizer_.peak() != bon::tok_dedent) {
+        // eat optional ';'
+        if (tokenizer_.peak() == tok_sep) {
+          tokenizer_.consume();
+          continue;
+        }
+        size_t line_num = tokenizer_.line_number();
+        size_t col_num = tokenizer_.column();
+        auto next_expr = parse_expression();
+        if (!next_expr) {
+          return nullptr;
+        }
+        // build expression sequence
+        else_node = llvm::make_unique<BinaryExprAST>(line_num,
+                                                    col_num,
+                                                    tok_sep,
+                                                    std::move(else_node),
+                                                    std::move(next_expr));
+      }
+      // eat unindentation
+      tokenizer_.consume();
+    }
+  }
+
+  if (started_with_indent) {
     if (tokenizer_.peak() != bon::tok_end) {
       bon::logger.set_line_column(line_num, col_num);
       bon::logger.error("syntax error", "expected 'end' after if expression");
@@ -640,6 +853,93 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
                                       std::move(else_node));
 }
 
+// 'while' loop
+std::unique_ptr<ExprAST> Parser::parse_while_loop() {
+  auto line_num = tokenizer_.line_number();
+  size_t col_num = tokenizer_.column();
+  // eat 'while'
+  tokenizer_.consume();
+
+  // parse condition
+  auto condition_node = parse_expression();
+  if (!condition_node) {
+    return nullptr;
+  }
+
+  // 'do' is optional, unless it's a single-line while loop
+  bool started_with_do = false;
+  if (tokenizer_.peak() == bon::tok_then) {
+    started_with_do = true;
+    // eat 'then'
+    tokenizer_.consume();
+  }
+
+  // track whether this is multi-line,
+  //  to determine if 'do' or 'end' are required
+  bool started_with_indent = false;
+  if (tokenizer_.peak() == bon::tok_indent) {
+    // eat expected indentation
+    tokenizer_.consume();
+    started_with_indent = true;
+  }
+  else if (!started_with_do) {
+    bon::logger.set_line_column(line_num, col_num);
+    bon::logger.error("syntax error",
+                      "expected 'do' after single-line while loop");
+    return nullptr;
+  }
+
+  // parse 'do' expression body
+  auto do_node = parse_expression();
+  if (!do_node) {
+    return nullptr;
+  }
+
+  if (started_with_indent) {
+    while (tokenizer_.peak() != bon::tok_dedent) {
+      // eat optional ';'
+      if (tokenizer_.peak() == tok_sep) {
+        tokenizer_.consume();
+        continue;
+      }
+      size_t line_num = tokenizer_.line_number();
+      size_t col_num = tokenizer_.column();
+      auto next_expr = parse_expression();
+      if (!next_expr) {
+        return nullptr;
+      }
+      // build expression sequence
+      do_node = llvm::make_unique<BinaryExprAST>(line_num,
+                                                   col_num,
+                                                   tok_sep,
+                                                   std::move(do_node),
+                                                   std::move(next_expr));
+    }
+  }
+
+  if (started_with_indent) {
+    // eat unindentation
+    tokenizer_.consume();
+    if (tokenizer_.peak() != bon::tok_end) {
+      bon::logger.set_line_column(line_num, col_num);
+      bon::logger.error("syntax error", "expected 'end' after while expression");
+      return nullptr;
+    }
+    // eat 'end'
+    tokenizer_.consume();
+  }
+  else {
+    if (tokenizer_.peak() == bon::tok_end) {
+      // eat optional 'end' in one-line if expression
+      tokenizer_.consume();
+    }
+  }
+
+  return llvm::make_unique<WhileExprAST>(line_num, col_num,
+                                      std::move(condition_node),
+                                      std::move(do_node));
+}
+
 std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) {
   auto line_num = tokenizer_.line_number();
 
@@ -652,7 +952,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
       llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                  tokenizer_.column(),
                                                  "Empty",
-                                                 std::move(empty_args));
+                                                 std::move(empty_args),
+                                                 true);
     // construct Cons
     std::vector<std::unique_ptr<ExprAST>> cons_args;
     cons_args.push_back(std::move(head));
@@ -660,7 +961,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
     return llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                       tokenizer_.column(),
                                                       "Cons",
-                                                      std::move(cons_args));
+                                                      std::move(cons_args),
+                                                      true);
   }
 
   if (tokenizer_.peak() != tok_comma) {
@@ -683,7 +985,8 @@ std::unique_ptr<ExprAST> Parser::parse_list_item(std::unique_ptr<ExprAST> head) 
     return llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
                                                       tokenizer_.column(),
                                                       "Cons",
-                                                      std::move(cons_args));
+                                                      std::move(cons_args),
+                                                      true);
   }
   else {
     return nullptr;
@@ -695,12 +998,40 @@ std::unique_ptr<ExprAST> Parser::parse_list_constructor() {
   tokenizer_.consume();
 
   auto line_num = tokenizer_.line_number();
+  auto col_num = tokenizer_.column();
+
   auto head = parse_expression();
   if (!head) {
     return nullptr;
   }
 
-  return parse_list_item(std::move(head));
+  std::vector<std::unique_ptr<ExprAST>> args;
+  args.push_back(std::move(head));
+
+  while (tokenizer_.peak() == tok_comma) {
+    // eat ','
+    tokenizer_.consume();
+    auto next = parse_expression();
+    if (!next) {
+      return nullptr;
+    }
+    args.push_back(std::move(next));
+  }
+
+  if (tokenizer_.peak() != tok_rbracket) {
+    bon::logger.set_line_column(line_num, tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ')' or ',' in list constructor");
+    return nullptr;
+  }
+  // eat ']'
+  tokenizer_.consume();
+
+  auto fn_name = "vec" + std::to_string(args.size());
+  auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, fn_name,
+                                                  std::move(args));
+  called_functions_.push_back(call_expr.get());
+  return call_expr;
 }
 
 // parse primary expression
@@ -711,8 +1042,13 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
     case bon::tok_true:
     case bon::tok_false:
       return parse_bool_expr();
+    case bon::tok_new:
     case bon::tok_typeconstructor:
       return parse_value_constructor_expr();
+    case bon::tok_sizeof:
+      return parse_sizeof_expr();
+    case bon::tok_ptr_offset:
+      return parse_ptr_offset_expr();
     case bon::tok_identifier:
       return parse_identifier_expr();
     case bon::tok_number:
@@ -725,6 +1061,8 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
       return parse_paren_expr();
     case bon::tok_if:
       return parse_if_expr();
+    case bon::tok_while:
+      return parse_while_loop();
     case bon::tok_match:
       return parse_match_expr();
     case tok_lbracket:
@@ -743,7 +1081,8 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
 }
 
 bool Parser::is_unary_op(Token op) {
-  return tokenizer_.peak() == tok_sub || tokenizer_.peak() == tok_add;
+  return tokenizer_.peak() == tok_sub || tokenizer_.peak() == tok_add
+         || tokenizer_.peak() == tok_mul;
 }
 
 std::unique_ptr<ExprAST> Parser::parse_unary() {
@@ -769,15 +1108,24 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
   while (true) {
     int this_precedence = get_operator_precedence();
 
-    // If this is a binop that binds at least as tightly as the current binop,
+    // if this is a binop that binds at least as tightly as the current binop,
     // consume it, otherwise we are done.
     if (this_precedence < left_precedence) {
       return LHS;
     }
 
-    // Okay, we know this is a binop.
+    size_t line_num = tokenizer_.line_number();
+    size_t col_num = tokenizer_.column();
+
     Token BinOp = tokenizer_.peak();
-    tokenizer_.consume(); // eat binop
+    // eat binop
+    tokenizer_.consume();
+
+    if (tokenizer_.peak() == tok_indent) {
+      // eat optional indentation
+      tokenizer_.consume();
+      tokenizer_.skip_next_dedent();
+    }
 
     // Parser::parse_ the primary expression after the binary operator.
     auto RHS = parse_unary();
@@ -802,20 +1150,36 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
       }
     }
 
+    if (BinOp == bon::tok_dot) {
+      auto call = dynamic_cast<CallExprAST*>(RHS.get());
+      if (call) {
+        call->Args.insert(call->Args.begin(), std::move(LHS));
+        LHS = std::move(RHS);
+        continue;
+      }
+    }
+
     // syntactic sugar for infix '::' cons operator
     if (BinOp == bon::tok_cons) {
       std::vector<std::unique_ptr<ExprAST>> args;
       args.push_back(std::move(LHS));
       args.push_back(std::move(RHS));
-      LHS = llvm::make_unique<ValueConstructorExprAST>(tokenizer_.line_number(),
-                                                       tokenizer_.column(),
+      LHS = llvm::make_unique<ValueConstructorExprAST>(line_num,
+                                                       col_num,
                                                        "Cons",
-                                                       std::move(args));
+                                                       std::move(args),
+                                                       true);
     }
     else {
+      // mark lvalues
+      // if (auto lhs_binop = dynamic_cast<BinaryExprAST*>(LHS.get())) {
+        if (BinOp == tok_assign) {
+          LHS->set_as_lvalue();
+        }
+      // }
       // merge LHS/RHS.
-      LHS = llvm::make_unique<BinaryExprAST>(tokenizer_.line_number(),
-                                             tokenizer_.column(), BinOp,
+      LHS = llvm::make_unique<BinaryExprAST>(line_num,
+                                             col_num, BinOp,
                                              std::move(LHS), std::move(RHS));
     }
   }
@@ -876,8 +1240,23 @@ std::unique_ptr<PrototypeAST> Parser::parse_prototype() {
   bool expecting_close_paren = tokenizer_.peak() != bon::tok_unit;
 
   std::vector<std::string> arg_names;
+  std::vector<bool> arg_owned;
   std::vector<bon::TypeVariable*> arg_types;
-  while (tokenizer_.consume() == bon::tok_identifier) {
+  // eat '(' or '()'
+  tokenizer_.consume();
+  while (tokenizer_.peak() == bon::tok_identifier ||
+         tokenizer_.peak() == bon::tok_mul) {
+    if (tokenizer_.peak() == bon::tok_mul) {
+      arg_owned.push_back(true);
+      // eat '*'
+      tokenizer_.consume();
+      if (tokenizer_.peak() != bon::tok_identifier) {
+        bon::logger.error("syntax error", "expected arg name after '*'");
+      }
+    }
+    else {
+      arg_owned.push_back(false);
+    }
     arg_names.push_back(tokenizer_.identifier());
     // eat identifier
     tokenizer_.consume();
@@ -901,6 +1280,8 @@ std::unique_ptr<PrototypeAST> Parser::parse_prototype() {
     if (tokenizer_.peak() != tok_comma) {
       break;
     }
+    // eat ','
+    tokenizer_.consume();
   }
 
   if (expecting_close_paren) {
@@ -936,6 +1317,7 @@ std::unique_ptr<PrototypeAST> Parser::parse_prototype() {
                                                   func_name,
                                                   std::move(arg_names),
                                                   std::move(arg_types),
+                                                  arg_owned,
                                                   ret_type);
   // auto ret_var = get_function_return_type(protoAST->type_var_);
   // bon::unify(ret_type, ret_var);
@@ -1182,6 +1564,7 @@ std::unique_ptr<FunctionAST> Parser::parse_definition() {
 
   // TODO: this should be a stack for nested scoping
   vars_in_scope_.clear();
+  called_functions_.clear();
 
   ExprAST* last_expr = nullptr;
   if (auto E = parse_expression()) {
@@ -1240,7 +1623,8 @@ std::unique_ptr<FunctionAST> Parser::parse_definition() {
 
     auto func = llvm::make_unique<FunctionAST>(line_num, col_num,
                                                std::move(proto_node),
-                                               std::move(E), last_expr);
+                                               std::move(E), last_expr,
+                                               called_functions_);
     for (auto arg : func->Proto->Args) {
       // // TODO: Should this just be a warning? Or ignored completely?
       // if (vars_in_scope_.count(arg) == 0) {
@@ -1528,6 +1912,7 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
 
 // parse top-level expression
 std::unique_ptr<FunctionAST> Parser::parse_toplevel_expr() {
+  called_functions_.clear();
   if (auto E = parse_expression()) {
     // Make an anonymous proto.
     auto proto_node = llvm::make_unique<PrototypeAST>(
@@ -1536,6 +1921,7 @@ std::unique_ptr<FunctionAST> Parser::parse_toplevel_expr() {
                                               "top-level",
                                               std::vector<std::string>(),
                                               std::vector<bon::TypeVariable*>(),
+                                              std::vector<bool>(),
                                               new bon::TypeVariable());
     // bon::unify(proto_node->ret_type_,
     //            get_function_return_type(proto_node->type_var_));
@@ -1544,7 +1930,8 @@ std::unique_ptr<FunctionAST> Parser::parse_toplevel_expr() {
                                           tokenizer_.column(),
                                           std::move(proto_node),
                                           std::move(E),
-                                          E.get());
+                                          E.get(),
+                                          called_functions_);
   }
   return nullptr;
 }
