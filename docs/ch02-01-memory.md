@@ -1,6 +1,6 @@
 ## Automatic Memory Management
 
-*** WORK IN PROGRESS (subject to change) ***
+*** WORK IN PROGRESS (subject to change, and only partially enforced by compiler) ***
 ### Memory Ownership Semantics
 
 For simplicity, heap allocated objects are referred to as "persistent objects",
@@ -87,6 +87,7 @@ If pattern is heap allocated:
 - pattern is borrowed
 - any objects returned as match expression result must be heap allocated
   (to ensure heap allocated pattern is not aliased)
+
 Else if pattern is a local object:
 - can return another local stack allocated object
 
@@ -111,52 +112,29 @@ def bar(arg1, arg2)
 end
 ```
 
-In a nutshell, safe ownership is ensured by only ever demoting an object's status from persistent to local,
-and never the other way around. Thus we can never have an alias to a persistent object in the same scope
-as the original object, ensuring we don't double free (or leak) the memory.
+In a nutshell, safe ownership is acheived by ensuring we can never alias to a persistent object in the same scope
+as the original object. As only persistent objects can be returned from functions, and can only be constructed from
+other persistent objects, we can guarantee we don't double free (or leak) the memory.
 
+*** VERY MUCH SUBJECT TO CHANGE ***
+For solving the problem of relations between objects, e.g. a graph:
 
-TODO: Solve the problem of relations between objects, e.g. a graph.
-
-One approach is to add a reference counted shared pointer type.
-
-Another approach is to create a closure, which allows all internal objects
-to be local, thus allowing safe aliasing.
-For example, using an actor type:
+Allocations can be assigned to an arena, and aliasing within the arena is safe.
 
 ``` ruby
-actor graph()
-  nodes = {}
-  edges = []
-
-  def add_node(name, node)
-    nodes[name] = node
-  end
-
-  def add_edge(n1, n2)
-    edges.append(Edge(nodes[n1], nodes[n2]))
-  end
+type graph
+  Graph(nodes:map, edges:vec)
 end
-```
 
-For this to work, need to ensure that actor instance and any objects
-passed to it obey the same rules as above object construction rules:
-- both local
-OR
-- both persistent
+graph_arena = new arena()
+g = new(graph_arena) Graph(...)
 
-For example:
-``` ruby
-def main()
-  g = graph()
-  node = Node(...)
-  # OK: both g and node are locals
-  g->add_node("myNode", node)
-  node2 = new Node(...)
-  # ERROR: this would make local g have some persistent state
-  g->add_node("myNode", node2)
+def add_edge(g, node1, node2)
+  # new(g) allocates edge in same arena as g
+  # allowing aliasing of nodes
+  g.edges.push(new(g) Edge(g.nodes[node1], g.nodes[node2]))
+end
 
-  g2 = new graph()
-  # OK: ownership of node2 is transferred to g2
-  g2->add_node("myPersistentNode", node2)
+# graph_arena must remain in scope for as long as any member of the arena
+# and everything within the area is freed when it goes out of scope
 ```
