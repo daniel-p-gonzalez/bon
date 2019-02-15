@@ -95,6 +95,7 @@ BinaryExprAST::BinaryExprAST(size_t line_num, size_t column_num, Token Op,
     case tok_assign:
     case tok_dot:
     case tok_concat:
+    case tok_sep:
     case tok_cons:
         inherit_child_type_ = true;
         break;
@@ -159,7 +160,8 @@ MatchExprAST::MatchExprAST(
 CallExprAST::CallExprAST(size_t line_num, size_t column_num,
                          const std::string &Callee,
                          std::vector<std::unique_ptr<ExprAST>> Args)
-  : ExprAST(line_num, column_num), Callee(Callee), Args(std::move(Args)) {
+  : ExprAST(line_num, column_num), Callee(Callee), Args(std::move(Args)),
+    deferred_unify_(false) {
   type_var_ = new TypeVariable();
 }
 

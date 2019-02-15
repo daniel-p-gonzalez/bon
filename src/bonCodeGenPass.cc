@@ -77,30 +77,6 @@ void CodeGenPass::process(BoolExprAST* node) {
 void CodeGenPass::process(UnitExprAST* node) {
   logger.set_line_column(node->line_num_, node->column_num_);
 
-  // auto tname = node->type_var_->get_name();
-  // StructType* structReg = state_.struct_map[tname];
-  // if (!structReg) {
-  //   std::vector<Type*> members;
-  //   std::vector<Value*> member_values;
-  //   members.push_back(Type::getInt32Ty(state_.llvm_context));
-  //   structReg = StructType::create(state_.llvm_context, members,
-  //                                  "struct." + tname);
-  //   state_.struct_map[tname] = structReg;
-  // }
-  // auto entry_block = state_.builder.GetInsertBlock();
-
-  // Value* val_alloc = ConstantExpr::getNullValue(structReg);
-
-  // Value* val_type_ptr =
-  //     state_.builder.CreateStructGEP(structReg, val_alloc, 0,
-  //                                    val_alloc->getName() + ".at(0)");
-
-  // auto tcon_enum = 0;
-  // auto tcon_val = ConstantInt::get(state_.llvm_context,
-  //                                  APInt(/*nbits*/32, tcon_enum,
-  //                                        /*is_signed*/false));
-  // auto result = state_.builder.CreateStore(tcon_val, val_type_ptr);
-
   auto ret_val = ConstantInt::get(state_.llvm_context,
                                    APInt(/*nbits*/32, 0,
                                          /*is_signed*/false));
@@ -258,6 +234,9 @@ void CodeGenPass::process(UnaryExprAST* node) {
           state_.named_values.erase(var->getName());
           moved_vars_[var->getName()] = DocPosition(var->line_num_,
                                                     var->column_num_);
+          // transferring ownership to function call
+          // TODO: verify function has matching '*' for this arg
+          free_list_.erase(tracked_allocs_[var->getName()]);
         }
       }
       returns (node, operand_value);
@@ -887,7 +866,7 @@ void CodeGenPass::process(MatchExprAST* node) {
     state_.builder.SetInsertPoint(case_block);
     push_case(CaseState(pattern, case_block, case_true_block, next_block,
                         merge_block,
-                        get_value_type_dispatch(match_case->body_.get()),
+                        get_value_type_dispatch(node),
                         is_last_case));
     match_case->run_pass(this);
     auto body_value = result();
@@ -934,6 +913,7 @@ TypeVariable* CodeGenPass::fn_type_from_call(CallExprAST* node) {
         auto variant_type =
           get_type_from_constructor(arg_type->type_operator_->type_constructor_);
         if (variant_type) {
+          variant_type = flatten_variable(variant_type);
           arg_type = variant_type;
         }
       }
@@ -941,7 +921,6 @@ TypeVariable* CodeGenPass::fn_type_from_call(CallExprAST* node) {
       arg_types.push_back(arg_type);
     }
     func_type_var = build_function_type(arg_types);
-    // TODO: this may be a bad idea
     auto ret_var = get_function_return_type(func_type_var);
     unify(node->type_var_, ret_var);
   }
@@ -964,6 +943,12 @@ void CodeGenPass::process(CallExprAST* node) {
 
   if (func) {
     push_environment(func->type_env_);
+    func_type_var = func->type_var();
+    // std::vector<TypeVariable*> arg_types;
+    // for (size_t i = 0; i < node->Args.size(); ++i) {
+    //   auto tvar = get_fn_arg_type(func->type_var(), i);
+    //   arg_types
+    // }
   }
   // Look up the name in the global module table.
   std::stringstream type_name;
@@ -1067,7 +1052,9 @@ void CodeGenPass::process(PtrOffsetExprAST* node) {
   std::vector<Value*> indices;
   indices.push_back(offset);
 
+  push_environment(node->type_env_);
   auto arg_type = get_value_type_dispatch(node);
+  pop_environment();
   l_value = state_.builder.CreateBitOrPointerCast(
                                     l_value,
                                     arg_type->getPointerTo(),
@@ -1233,20 +1220,40 @@ void CodeGenPass::process(FunctionAST* node) {
         if (dependency->Callee == fun_name) {
           continue;
         }
-        // TODO: this needs to pass in the function type
 
         auto fn_type = fn_type_from_call(dependency);
-        push_environment(dependency->Env);
+        // push_environment(dependency->Env);
         auto dep_func =
                 state_.get_typeclass_impl_function_node(dependency->Callee,
                                                         fn_type);
-        pop_environment();
+        // pop_environment();
         if (dep_func == nullptr) {
           dep_func = state_.all_functions[dependency->Callee].get();
           if (dep_func == nullptr) {
             // already processed
             continue;
           }
+        }
+
+        // TODO: temporary workaround for delayed typeclass impl match
+        if (dependency->deferred_unify_) {
+          auto gen_func_type = flatten_variable(dep_func->type_var());
+
+          push_environment(dependency->Env);
+
+          get_fresh_variable(gen_func_type);
+          gen_func_type = flatten_variable(gen_func_type);
+
+          dependency->Env = pop_environment();
+
+          unify(fn_type, gen_func_type);
+
+          auto ret_var = get_function_return_type(gen_func_type);
+          unify(dependency->type_var_, ret_var);
+
+          std::string mangled_name = dependency->get_mangled_name();
+          state_.function_envs[dependency->Callee].push_back(
+                    std::make_pair(mangled_name, dependency->Env));
         }
         process(dep_func);
       }
@@ -1262,6 +1269,9 @@ void CodeGenPass::process(FunctionAST* node) {
         return;
       }
 
+      // TODO: would be useful have cmd-line option for outputting this to a log
+      // std::cout << "def " << mangled_name << std::endl;
+
       // Create a new basic block to start insertion into.
       BasicBlock *BB = BasicBlock::Create(state_.llvm_context,
                                           "entry", function);
@@ -1269,9 +1279,12 @@ void CodeGenPass::process(FunctionAST* node) {
 
       // Record the function arguments in the named_values_ map.
       state_.named_values.clear();
+      size_t idx = 0;
       for (auto &arg : function->args()) {
         // Create an alloca for this variable.
-        auto tvar = node->param_name_to_tvar_[arg.getName()];
+        // auto tvar = node->param_name_to_tvar_[arg.getName()];
+        auto tvar = get_fn_arg_type(node->type_var(), idx++);
+        unify(node->param_name_to_tvar_[arg.getName()], tvar);
         AllocaInst* alloca = create_entry_block_alloca(function, arg.getName(),
                                                        tvar, nullptr, true);
 

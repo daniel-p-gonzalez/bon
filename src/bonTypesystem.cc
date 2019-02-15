@@ -208,9 +208,9 @@ std::string TypeVariable::get_name(bool store_name, TypeVariableSet occurs) {
     bool in_registry = s_type_registry.find(variant_name_)
                        != s_type_registry.end();
     // if (occurs.count(this) > 0 && in_registry) {
-    if (occurs.size() > 0 && in_registry) {
-        return variant_name_;
-    }
+    // if (occurs.size() > 0 && in_registry) {
+    //     return variant_name_;
+    // }
     if (occurs.count(this) > 0) {
         return _get_variant_name(this);
     }
@@ -482,6 +482,89 @@ bool type_operators_match(TypeOperator* lhs, TypeOperator* rhs) {
     return _type_operators_match(lhs, rhs, occurs);
 }
 
+bool sum_type_can_unify(TypeOperator* variant, TypeOperator* constructor) {
+    for (auto &con : variant->types_) {
+        if (con->type_operator_
+            && con->type_operator_->type_constructor_
+               == constructor->type_constructor_) {
+            return can_unify(con->type_operator_, constructor);
+        }
+    }
+    return false;
+}
+
+
+bool _can_unify(TypeOperator* lhs, TypeOperator* rhs,
+                           std::set<TypeOperator*> &occurs) {
+    if (lhs == rhs) {
+        return true;
+    }
+
+    if (lhs && occurs.count(lhs) > 0) {
+        if (rhs && occurs.count(rhs) > 0) {
+            return true;
+        }
+    }
+    occurs.insert(lhs);
+    occurs.insert(rhs);
+
+    if (lhs->type_constructor_ != rhs->type_constructor_) {
+        if (lhs->type_constructor_ == " | ") {
+            return sum_type_matches(lhs, rhs);
+        }
+        else if (rhs->type_constructor_ == " | ") {
+            return sum_type_matches(rhs, lhs);
+        }
+        else if (auto variant =
+                    get_type_from_constructor(lhs->type_constructor_)) {
+            variant = resolve_variable(variant);
+            if (!variant->type_operator_) {
+                return false;
+            }
+            return sum_type_matches(variant->type_operator_, rhs);
+        }
+        return false;
+    }
+    if (lhs->types_.size() != rhs->types_.size()) {
+        return false;
+    }
+
+    for (size_t i = 0; i < lhs->types_.size(); ++i) {
+        // auto lhtype = lhs->types_[i]->get_root();
+        // auto rhtype = rhs->types_[i]->get_root();
+        auto lhtype = resolve_variable(lhs->types_[i], false);
+        auto rhtype = resolve_variable(rhs->types_[i], false);
+        if (lhtype->type_operator_ != nullptr
+            && rhtype->type_operator_ != nullptr) {
+            bool ops_match = _can_unify(lhtype->type_operator_,
+                                                   rhtype->type_operator_,
+                                                   occurs);
+            return ops_match;
+        }
+        else if (lhtype->type_operator_ == nullptr
+                 && rhtype->type_operator_ != nullptr) {
+            return true;
+        }
+        else if (rhtype->type_operator_ == nullptr
+                 && lhtype->type_operator_ != nullptr) {
+            return true;
+        }
+        else if (lhtype->type_name_ != "") {
+            return lhtype->type_name_ == rhtype->type_name_;
+        }
+        else if (lhtype != rhtype) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool can_unify(TypeOperator* lhs, TypeOperator* rhs) {
+    std::set<TypeOperator*> occurs;
+    return _can_unify(lhs, rhs, occurs);
+}
+
+
 void unify_type_operators(TypeOperator* lhs, TypeOperator* rhs,
                           std::set<TypeOperator*> &occurs);
 
@@ -640,7 +723,7 @@ bool is_pointer_type(TypeVariable* type_var) {
 }
 
 TypeVariable* get_type_of_pointer(TypeVariable* type_var) {
-    type_var = resolve_variable(type_var);
+    type_var = resolve_variable(type_var, false);
     if (type_var->type_operator_ &&
         type_var->type_operator_->types_.size() > 0) {
         return type_var->type_operator_->types_[0];
@@ -755,6 +838,24 @@ std::string get_constructor_from_type(TypeVariable* type) {
         return type->type_operator_->type_constructor_;
     }
     return "";
+}
+
+TypeVariable* get_fn_arg_type(TypeVariable* fn_type, size_t arg_idx) {
+    auto root = resolve_variable(fn_type);
+    if (root && root->type_operator_ &&
+        root->type_operator_->type_constructor_ == " -> ") {
+        auto args = resolve_variable(root->type_operator_->types_[0]);
+        if (args->type_operator_) {
+            if (args->type_operator_->types_.size() > arg_idx) {
+               return resolve_variable(args->type_operator_->types_[arg_idx]);
+            }
+            else if(args->type_operator_->types_.size() == 0 && arg_idx == 0) {
+                return args;
+            }
+        }
+    }
+
+    return nullptr;
 }
 
 TypeVariable* get_function_return_type(TypeVariable* func_type) {

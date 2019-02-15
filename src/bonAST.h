@@ -206,6 +206,8 @@ struct CallExprAST : public ExprAST {
   std::string Callee;
   std::vector<ExprASTPtr> Args;
   TypeEnv Env;
+  // TODO: temporary workaround for late resolve of typeclass instance
+  bool deferred_unify_;
 
   CallExprAST(size_t line_num, size_t column_num, const std::string &Callee,
               std::vector<ExprASTPtr> Args);
@@ -228,6 +230,7 @@ typedef std::unique_ptr<SizeofExprAST> SizeofExprASTPtr;
 struct PtrOffsetExprAST : public ExprAST {
   ExprASTPtr arg_;
   ExprASTPtr offset_;
+  TypeEnv type_env_;
   bool is_lvalue;
 
   PtrOffsetExprAST(size_t line_num, size_t column_num, ExprASTPtr arg,

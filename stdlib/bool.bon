@@ -1,3 +1,21 @@
+impl Eq<bool>
+  def operator==(a:bool, b:bool) -> bool
+    match (a, b)
+      (true, true) => true
+      (false, false) => true
+      _ => false
+    end
+  end
+
+  def operator!=(a:bool, b:bool) -> bool
+    match (a, b)
+      (true, true) => false
+      (false, false) => false
+      _ => true
+    end
+  end
+end
+
 impl Print<bool>
   def print(x:bool) -> ()
     match x

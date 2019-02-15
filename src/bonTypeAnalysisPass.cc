@@ -123,9 +123,14 @@ void TypeAnalysisPass::process(BinaryExprAST* node) {
       std::string field = node->RHS->getName();
       auto field_index = get_constructor_field_index(constructor, field);
       auto constr_type = resolve_variable(get_type_from_constructor(constructor));
+      unify(node->LHS->type_var_, constr_type);
+      auto type_field = constr_type->type_operator_ ?
+                        resolve_variable(constr_type->type_operator_->types_[0])
+                        :
+                        nullptr;
       if (constr_type->type_operator_ &&
-          constr_type->type_operator_->types_[0]->type_operator_->types_.size() > field_index) {
-        auto field_type = constr_type->type_operator_->types_[0]->type_operator_->types_[field_index];
+          type_field->type_operator_->types_.size() > field_index) {
+        auto field_type = type_field->type_operator_->types_[field_index];
         unify(field_type, node->RHS->type_var_);
       }
     }
@@ -239,9 +244,22 @@ void TypeAnalysisPass::process(CallExprAST* node) {
     if (!is_concrete_type(func_type_var->type_operator_->types_[0])) {
       std::string typeclass_name = state_.method_to_typeclass[node->Callee];
       auto &typeclass = state_.typeclasses[typeclass_name];
-      unify(func_type_var, typeclass->methods_[node->Callee]);
-      auto ret_var = get_function_return_type(func_type_var);
+      auto method_type = typeclass->methods_[node->Callee];
+
+      auto gen_func_type = flatten_variable(method_type);
+
+      push_environment(node->Env);
+
+      get_fresh_variable(gen_func_type);
+      gen_func_type = flatten_variable(gen_func_type);
+
+      node->Env = pop_environment();
+
+      unify(func_type_var, gen_func_type);
+
+      auto ret_var = get_function_return_type(gen_func_type);
       unify(node->type_var_, ret_var);
+      node->deferred_unify_ = true;
       return;
     }
   }
@@ -313,6 +331,7 @@ void TypeAnalysisPass::process(CallExprAST* node) {
 
 // SizeofExprAST
 void TypeAnalysisPass::process(SizeofExprAST* node) {
+  node->arg_->run_pass(this);
 }
 
 // PtrOffsetExprAST
@@ -320,8 +339,16 @@ void TypeAnalysisPass::process(PtrOffsetExprAST* node) {
   node->arg_->run_pass(this);
   node->offset_->run_pass(this);
   // make sure it's a pointer type
+
   auto ptr_type = flatten_variable(bon::PointerType);
+
+  push_environment(node->type_env_);
+
   get_fresh_variable(ptr_type);
+  ptr_type = flatten_variable(ptr_type);
+
+  node->type_env_ = pop_environment();
+
   unify(node->arg_->type_var_, ptr_type);
   unify(node->type_var_, get_type_of_pointer(node->arg_->type_var_));
 }
@@ -364,6 +391,7 @@ void TypeAnalysisPass::process(FunctionAST* node) {
   // force generating names for free variables
   node->type_var()->get_name();
   node->Proto->type_var_ = flatten_variable(node->type_var());
+//  node->type_var()->get_name();
 }
 
 // TypeAST

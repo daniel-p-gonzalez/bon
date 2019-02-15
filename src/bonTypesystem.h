@@ -100,6 +100,7 @@ void get_fresh_variable(TypeVariable* type_var);
 TypeVariable* gen_variable(TypeVariable* type_var);
 
 bool type_operators_match(TypeOperator* lhs, TypeOperator* rhs);
+bool can_unify(TypeOperator* lhs, TypeOperator* rhs);
 //void unify_type_operators(TypeOperator* lhs, TypeOperator* rhs);
 void unify(TypeVariable* lhs, TypeVariable* rhs);
 TypeVariable* build_function_type(std::vector<TypeVariable*> &param_types,
@@ -116,6 +117,7 @@ TypeVariable* build_from_type_constructor(std::string constructor,
 uint32_t get_constructor_value(std::string constructor);
 uint32_t get_constructor_field_index(std::string constructor,
                                      std::string field);
+TypeVariable* get_fn_arg_type(TypeVariable* fn_type, size_t arg_idx);
 
 bool is_boxed_type(TypeVariable* type_var);
 bool is_concrete_type(TypeVariable* type_var);

@@ -1153,6 +1153,21 @@ std::unique_ptr<ExprAST> Parser::parse_binop(int left_precedence,
     if (BinOp == bon::tok_dot) {
       auto call = dynamic_cast<CallExprAST*>(RHS.get());
       if (call) {
+        // TODO: temporary workaround for precedence issues e.g. "self.v[0]".
+        //       v[0] is transformed into unsafe_at(v, 0) in parse_identifier,
+        //       which would now be transformed into "unsafe_at(self, v, 0)".
+        //       here we replace v with self.v, and get "unsafe_at(self.v, 0)"
+        if (call->Callee == "unsafe_at") {
+          // reconstruct obj.field
+          LHS = llvm::make_unique<BinaryExprAST>(line_num,
+                                        col_num, BinOp,
+                                        std::move(LHS),
+                                        std::move(call->Args[0]));
+          // replace field with obj.field as first arg
+          call->Args[0] = std::move(LHS);
+          LHS = std::move(RHS);
+          continue;
+        }
         call->Args.insert(call->Args.begin(), std::move(LHS));
         LHS = std::move(RHS);
         continue;

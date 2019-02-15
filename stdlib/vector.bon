@@ -12,7 +12,7 @@ def vec()
     return v
 end
 
-def push(v:vec, item)
+def push(v:vec, *item) -> ()
   if v.size+1 > v.capacity
     old_size = sizeof(item) * v.capacity
     new_size = if v.capacity == 0 then sizeof(item) * 2 else old_size * 2
@@ -24,6 +24,8 @@ def push(v:vec, item)
   end
   ptr_offset(v.data, v.size) = item
   v.size = v.size + 1
+
+  return ()
 end
 
 def at(v:vec, index:int)
@@ -43,6 +45,19 @@ def unsafe_at(v:vec, index:int)
   else
     ptr_offset(v.data, index)
   end
+end
+
+def erase(v:vec, index:int) -> ()
+  if v.size > index+1
+    cur = index+1
+    while cur < v.size
+      v[cur-1] = v[cur]
+      cur = cur + 1
+    end
+  end
+  v.size = v.size - 1
+
+  return ()
 end
 
 def swap(v:vec, i:int, j:int)

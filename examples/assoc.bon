@@ -1,0 +1,120 @@
+# simple associative array example
+
+impl BoundsCheck<pair>
+  def out_of_bounds(template:pair)
+    print("Accessed out of bounds!")
+    template
+  end
+end
+
+def get_index(m:vec, key) -> int
+  idx = -1
+  value = ""
+  i = 0
+  while i < m.len()
+    pair = m[i]
+    match pair
+      Pair(a, b) =>
+        if a == key
+          value = b
+          idx = i
+          i = m.len()
+        else
+          i = i + 1
+        end
+      end
+    end
+  end
+
+  return idx
+end
+
+def get(m:vec, key)
+  index = -1
+  value = ""
+  i = 0
+  while i < m.len()
+    pair = m[i]
+    match pair
+      Pair(a, b) =>
+        if a == key
+          value = b
+          index = i
+          i = m.len()
+        else
+          i = i + 1
+        end
+      end
+    end
+  end
+
+  if index != -1
+    new Some(value)
+  else
+    new None
+  end
+end
+
+def contains_key(m:vec, key) -> bool
+  m.get_index(key) != -1
+end
+
+def insert(m:vec, key, value) -> ()
+  index = m.get_index(key)
+  if index == -1
+    pair = new Pair(key, value)
+    m.push(*pair)
+  else
+    pair = new Pair(key, value)
+    m.set(index, *pair)
+  end
+
+  return ()
+end
+
+def remove(m:vec, key) -> ()
+  index = m.get_index(key)
+  if index != -1
+    m.erase(index)
+  end
+
+  return ()
+end
+
+def main() -> ()
+  movie_quotes = []
+  movie_quotes.insert("Total Recall", "See you at the party, Richter!")
+  movie_quotes.insert("Blade Runner", "Its too bad she wont live, but then again who does?")
+  movie_quotes.insert("Minority Report", "Everybody runs.")
+  movie_quotes.insert("Dog Soldiers", "There is no Spoon.")
+
+  if movie_quotes.contains_key("Transmorphers") != true
+    print("We've got " ++ str(movie_quotes.len()) ++
+          " movie quotes, but not from Transmorphers.")
+  end
+
+  movie_quotes.remove("Dog Soldiers")
+
+  to_find = ["Total Recall", "Minority Report", "Batman Begins"];
+  i = 0
+  while i < to_find.len()
+    movie = to_find[i]
+    match movie_quotes.get(movie)
+      Some(quote) => print(movie ++ ": " ++ quote)
+      None => print(movie ++ " has no quotes")
+    end
+    i = i +1
+  end
+
+  i = 0
+  while i < movie_quotes.len()
+    match movie_quotes[i]
+      (movie, quote) => print(movie ++ ": " ++ quote)
+    end
+    i = i +1
+  end
+
+  return ()
+end
+
+main()

@@ -4,6 +4,7 @@
 |*
 L*----------------------------------------------------------------------------*/
 #include "bonModuleState.h"
+#include "auto_scope.h"
 
 namespace bon {
 
@@ -20,9 +21,13 @@ FunctionAST*
     if (!method) {
       continue;
     }
-    auto method_type_var = resolve_variable(method->type_var());
+    push_environment(method->type_env_);
+    AutoScope pop_env([this, &method]{
+      pop_environment();
+    });
+    auto method_type_var = resolve_variable(method->type_var(), false);
     if (method_type_var->type_operator_ && func_type_var->type_operator_) {
-      if (type_operators_match(method_type_var->type_operator_,
+      if (can_unify(method_type_var->type_operator_,
                                func_type_var->type_operator_)) {
         return method.get();
       }
