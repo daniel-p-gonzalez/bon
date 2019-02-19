@@ -50,8 +50,8 @@ class Copy<T>
   def copy(x:T) -> T;
 end
 
-type pair<a>
-  Pair(a, a)
+type pair<a,b>
+  Pair(a, b)
 end
 
 class BoundsCheck<T>
