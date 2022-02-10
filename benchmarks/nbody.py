@@ -1,12 +1,4 @@
 # https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-python3-2.html
-# test run with:
-# $ time python3 benchmarks/nbody.py 50000000
-# -0.169075164
-# -0.169059907
-#
-# real    6m46.420s
-# user    6m46.004s
-# sys     0m0.404s
 
 import sys
 from math import sqrt

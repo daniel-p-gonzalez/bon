@@ -11,6 +11,7 @@ L*----------------------------------------------------------------------------*/
 
 #include <string>
 #include <map>
+#include <set>
 #include <functional>
 #include <memory>
 
@@ -21,6 +22,7 @@ private:
   // precedence for binary operators
   std::map<Token, int> binop_precedence_;
   std::map<std::string, VariableExprAST*> vars_in_scope_;
+  std::set<std::string> type_constructors_;
   std::vector<CallExprAST*> called_functions_;
   Tokenizer tokenizer_;
   ModuleState &state_;
@@ -28,6 +30,7 @@ private:
   std::vector<std::string> scope_stack_;
   void update_tok_position();
   bool is_unary_op(Token op);
+  bool is_type_constructor(std::string ident);
   // main parse loop
   void parse();
 
@@ -58,9 +61,6 @@ public:
   std::unique_ptr<ExprAST> parse_unit_expr();
   // '(' expression ')'
   std::unique_ptr<ExprAST> parse_paren_expr();
-  // Variant value constructor
-  // e.g. Some(5)
-  std::unique_ptr<ExprAST> parse_value_constructor_expr();
   // variable reference, or function call
   std::unique_ptr<ExprAST> parse_identifier_expr();
   // sizeof() builtin

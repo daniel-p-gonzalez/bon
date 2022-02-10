@@ -25,6 +25,7 @@ struct DocPosition
 class Logger {
 private:
   std::string current_file_;
+  std::string file_prefix_;
   size_t line_num_;
   size_t column_num_;
   uint32_t max_errors_;
@@ -39,6 +40,9 @@ public:
 
   bool had_errors();
   void set_current_file(std::string current_file);
+  void set_file_prefix(std::string file_prefix) {
+    file_prefix_ = file_prefix;
+  }
   std::string get_current_file();
   void set_line_column(DocPosition pos);
   void set_line_column(size_t line_num, size_t column_num);

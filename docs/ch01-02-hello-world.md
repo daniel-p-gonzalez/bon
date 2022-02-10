@@ -4,7 +4,7 @@ Following tradition, we're starting our journey with the simplest possible progr
 
 Filename: hello.bon
 
-```ruby
+```python
 print("Hello, world!")
 ```
 
@@ -14,10 +14,9 @@ However, it's good practice to have the top-level only run a main function. Note
 
 Filename: hello_main.bon
 
-```ruby
-def main()
+```python
+def main():
   print("Hello, world!")
-end
 
 main()
 ```
@@ -29,4 +28,4 @@ $ bon hello.bon
 Hello, world!
 ```
 
-[Next](ch01-03-quick-tour.md), we'll take a quick tour of the language in order to introduce various core concepts.
+[Next](ch01-03-quick-tour.md), we'll take a quick tour of the language in order to introduce the core features.

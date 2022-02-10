@@ -328,6 +328,9 @@ struct TypeclassAST {
                std::vector<std::string> params, TypeEnv &param_types,
                TypeMap &methods);
   void run_pass(CompilerPass* pass);
+  bool has_method(std::string method_name) {
+    return methods_.find(method_name) != methods_.end();
+  }
 };
 typedef std::unique_ptr<TypeclassAST> TypeclassASTPtr;
 

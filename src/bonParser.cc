@@ -58,7 +58,7 @@ void Parser::parse() {
         state_.function_names.push_back(func_name);
       }
       break;
-    case tok_class:
+    case tok_typeclass:
       if (auto tclass = parse_typeclass()) {
         for (auto &method : tclass->methods_) {
           // add mapping from method name to typeclass
@@ -82,7 +82,7 @@ void Parser::parse() {
         // logger.error("failed", "could not parse type impl");
       }
       break;
-    case tok_type:
+    case tok_class:
       if (!parse_type()) {
         logger.error("failed", "could not parse type");
       }
@@ -315,87 +315,19 @@ std::unique_ptr<ExprAST> Parser::parse_paren_expr() {
   return expr_node;
 }
 
-// object constructor
-// e.g. Some(5)
-std::unique_ptr<ExprAST> Parser::parse_value_constructor_expr() {
+// variable reference, type constructor, or function call
+std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
   bool heap_alloc = false;
+  bool type_constructor = false;
   if (tokenizer_.peak() == tok_new) {
     heap_alloc = true;
+    type_constructor = true;
     // eat new
     tokenizer_.consume();
   }
 
-  std::string constructor_name = tokenizer_.identifier();
-
-  size_t col_num = tokenizer_.column();
-  // eat constructor name
-  tokenizer_.consume();
-
-  auto line_num = tokenizer_.line_number();
-
-  bool is_enum = tokenizer_.peak() != tok_lparen
-              && tokenizer_.peak() != bon::tok_unit;
-  bool expecting_args = !is_enum && tokenizer_.peak() != bon::tok_unit;
-  if (!is_enum) {
-    // eat ( or ()
-    tokenizer_.consume();
-  }
-
-  // for allowing line breaks
-  bool indented = false;
-  std::vector<std::unique_ptr<ExprAST>> args;
-  if (expecting_args) {
-    if (tokenizer_.peak() != tok_rparen) {
-      while (true) {
-        auto line_num = tokenizer_.line_number();
-        if (auto arg = parse_expression()) {
-          args.push_back(std::move(arg));
-        }
-        else {
-          return nullptr;
-        }
-
-        if (tokenizer_.peak() == tok_rparen) {
-          break;
-        }
-
-        if (tokenizer_.peak() != tok_comma) {
-          bon::logger.set_line_column(line_num, tokenizer_.column());
-          bon::logger.error("syntax error",
-                            "expected ')' or ',' in argument list");
-          // eat bad token
-          tokenizer_.consume();
-          return nullptr;
-        }
-        // eat ','
-        tokenizer_.consume();
-        if (tokenizer_.peak() == tok_indent) {
-          if (indented) {
-            bon::logger.error("syntax error", "misaligned indentation");
-          }
-          indented = true;
-          // eat tok_indent
-          tokenizer_.consume();
-          tokenizer_.skip_next_dedent();
-        }
-      }
-    }
-  }
-
-  if (expecting_args) {
-    // eat ')'
-    tokenizer_.consume();
-  }
-
-  return llvm::make_unique<ValueConstructorExprAST>(line_num, col_num,
-                                                    constructor_name,
-                                                    std::move(args),
-                                                    heap_alloc);
-}
-
-// variable reference, or function call
-std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
-  std::string IdName = tokenizer_.identifier();
+  std::string ident = tokenizer_.identifier();
+  type_constructor = type_constructor || is_type_constructor(ident);
 
   size_t col_num = tokenizer_.column();
   auto line_num = tokenizer_.line_number();
@@ -403,18 +335,19 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
   tokenizer_.consume();
 
   // variable reference
-  if (tokenizer_.peak() != tok_lparen &&
+  if (!type_constructor &&
+      tokenizer_.peak() != tok_lparen &&
       tokenizer_.peak() != bon::tok_unit &&
       tokenizer_.peak() != tok_lbracket) {
     auto var_expr = llvm::make_unique<VariableExprAST>(line_num, col_num,
-                                                       IdName);
-    if (vars_in_scope_.count(IdName) > 0) {
-      // bon::unify(vars_in_scope_[IdName]->type_var_, var_expr->type_var_);
+                                                       ident);
+    if (vars_in_scope_.count(ident) > 0) {
+      // bon::unify(vars_in_scope_[ident]->type_var_, var_expr->type_var_);
       delete var_expr->type_var_;
-      var_expr->type_var_ = vars_in_scope_[IdName]->type_var_;
+      var_expr->type_var_ = vars_in_scope_[ident]->type_var_;
     }
     else {
-      vars_in_scope_[IdName] = var_expr.get();
+      vars_in_scope_[ident] = var_expr.get();
       // var_expr->type_var_->get_name();
     }
     return std::move(var_expr);
@@ -423,14 +356,14 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
   if (tokenizer_.peak() == tok_lbracket) {
     // index operator
     auto var_expr = llvm::make_unique<VariableExprAST>(line_num, col_num,
-                                                       IdName);
-    if (vars_in_scope_.count(IdName) > 0) {
-      // bon::unify(vars_in_scope_[IdName]->type_var_, var_expr->type_var_);
+                                                       ident);
+    if (vars_in_scope_.count(ident) > 0) {
+      // bon::unify(vars_in_scope_[ident]->type_var_, var_expr->type_var_);
       delete var_expr->type_var_;
-      var_expr->type_var_ = vars_in_scope_[IdName]->type_var_;
+      var_expr->type_var_ = vars_in_scope_[ident]->type_var_;
     }
     else {
-      vars_in_scope_[IdName] = var_expr.get();
+      vars_in_scope_[ident] = var_expr.get();
       // var_expr->type_var_->get_name();
     }
     // eat '['
@@ -456,11 +389,27 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
     return call_expr;
   }
   else {
-    // function call
+    // function call or type constructor
     bool expecting_args = tokenizer_.peak() != bon::tok_unit;
-    // eat ( or ()
-    tokenizer_.consume();
+    if (type_constructor) {
+      expecting_args = false;
+      if (tokenizer_.peak() == tok_lparen) {
+        expecting_args = true;
+        // eat (
+        tokenizer_.consume();
+      }
+      else if (tokenizer_.peak() == bon::tok_unit) {
+        // eat ()
+        tokenizer_.consume();
+      }
+    }
+    else {
+      // eat ( or ()
+      tokenizer_.consume();
+    }
+
     std::vector<std::unique_ptr<ExprAST>> args;
+    bool indented = false;
     if (expecting_args) {
       if (tokenizer_.peak() != tok_rparen) {
         while (true) {
@@ -478,6 +427,7 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
 
           if (tokenizer_.peak() != tok_comma) {
             bon::logger.set_line_column(line_num, tokenizer_.column());
+            std::cout << "for ident: " << ident << std::endl;
             bon::logger.error("syntax error",
                               "expected ')' or ',' in argument list");
             // eat bad token
@@ -486,6 +436,15 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
           }
           // eat ','
           tokenizer_.consume();
+          if (tokenizer_.peak() == tok_indent) {
+            if (indented) {
+              bon::logger.error("syntax error", "misaligned indentation");
+            }
+            indented = true;
+            // eat tok_indent
+            tokenizer_.consume();
+            tokenizer_.skip_next_dedent();
+          }
         }
       }
     }
@@ -496,10 +455,18 @@ std::unique_ptr<ExprAST> Parser::parse_identifier_expr() {
       tokenizer_.consume();
     }
 
-    auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, IdName,
-                                                    std::move(args));
-    called_functions_.push_back(call_expr.get());
-    return call_expr;
+    if (type_constructor) {
+      return llvm::make_unique<ValueConstructorExprAST>(line_num, col_num,
+                                                        ident,
+                                                        std::move(args),
+                                                        heap_alloc);
+    }
+    else {
+      auto call_expr = llvm::make_unique<CallExprAST>(line_num, col_num, ident,
+                                                      std::move(args));
+      called_functions_.push_back(call_expr.get());
+      return call_expr;
+    }
   }
 
   return nullptr;
@@ -613,6 +580,15 @@ std::unique_ptr<ExprAST> Parser::parse_match_expr() {
     return nullptr;
   }
 
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after 'match'");
+    return nullptr;
+  }
+  // eat ':'
+  tokenizer_.consume();
+
   if (tokenizer_.peak() == bon::tok_indent) {
     // eat expected indentation
     tokenizer_.consume();
@@ -667,14 +643,14 @@ std::unique_ptr<ExprAST> Parser::parse_match_expr() {
       }
       // eat unindentation
       tokenizer_.consume();
-      if (tokenizer_.peak() != bon::tok_end) {
-        bon::logger.set_line_column(line_num, col_num);
-        bon::logger.error("syntax error",
-                          "expected 'end' after match case block");
-        return nullptr;
-      }
-      // eat 'end'
-      tokenizer_.consume();
+      // if (tokenizer_.peak() != bon::tok_end) {
+      //   bon::logger.set_line_column(line_num, col_num);
+      //   bon::logger.error("syntax error",
+      //                     "expected 'end' after match case block");
+      //   return nullptr;
+      // }
+      // // eat 'end'
+      // tokenizer_.consume();
     }
 
     match_cases.push_back(llvm::make_unique<MatchCaseExprAST>(
@@ -704,13 +680,13 @@ std::unique_ptr<ExprAST> Parser::parse_match_expr() {
   }
   // eat unindentation
   tokenizer_.consume();
-  if (tokenizer_.peak() != bon::tok_end) {
-    bon::logger.set_line_column(line_num, col_num);
-    bon::logger.error("syntax error", "expected 'end' after match expression");
-    return nullptr;
-  }
-  // eat 'end'
-  tokenizer_.consume();
+  // if (tokenizer_.peak() != bon::tok_end) {
+  //   bon::logger.set_line_column(line_num, col_num);
+  //   bon::logger.error("syntax error", "expected 'end' after match expression");
+  //   return nullptr;
+  // }
+  // // eat 'end'
+  // tokenizer_.consume();
 
   return llvm::make_unique<MatchExprAST>(line_num, col_num, std::move(pattern),
                                          std::move(match_cases));
@@ -729,13 +705,21 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
     return nullptr;
   }
 
-  // 'then' is optional, unless it's a single-line if expression
-  bool started_with_then = false;
-  if (tokenizer_.peak() == bon::tok_then) {
-    started_with_then = true;
-    // eat 'then'
-    tokenizer_.consume();
+  // // 'then' is optional, unless it's a single-line if expression
+  // bool started_with_then = false;
+  // if (tokenizer_.peak() == bon::tok_then) {
+  //   started_with_then = true;
+  //   // eat 'then'
+  //   tokenizer_.consume();
+  // }
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after 'if' condition");
+    return nullptr;
   }
+  // eat ':'
+  tokenizer_.consume();
 
   // track whether this is multi-line,
   //  to determine if 'then' or 'end' are required
@@ -745,12 +729,12 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
     tokenizer_.consume();
     started_with_indent = true;
   }
-  else if (!started_with_then) {
-    bon::logger.set_line_column(line_num, col_num);
-    bon::logger.error("syntax error",
-                      "expected 'then' after single-line if condition");
-    return nullptr;
-  }
+  // else if (!started_with_then) {
+  //   bon::logger.set_line_column(line_num, col_num);
+  //   bon::logger.error("syntax error",
+  //                     "expected 'then' after single-line if condition");
+  //   return nullptr;
+  // }
 
   // parse 'then' expression body
   auto then_node = parse_expression();
@@ -787,6 +771,14 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
     // eat 'else'
     tokenizer_.consume();
 
+    if (tokenizer_.peak() != tok_colon) {
+      bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+      bon::logger.error("syntax error",
+                        "expected ':' after 'else'");
+      return nullptr;
+    }
+    // eat ':'
+    tokenizer_.consume();
     if (started_with_indent) {
       if (tokenizer_.peak() == bon::tok_indent) {
         // eat expected indent
@@ -831,21 +823,21 @@ std::unique_ptr<ExprAST> Parser::parse_if_expr() {
     }
   }
 
-  if (started_with_indent) {
-    if (tokenizer_.peak() != bon::tok_end) {
-      bon::logger.set_line_column(line_num, col_num);
-      bon::logger.error("syntax error", "expected 'end' after if expression");
-      return nullptr;
-    }
-    // eat 'end'
-    tokenizer_.consume();
-  }
-  else {
-    if (tokenizer_.peak() == bon::tok_end) {
-      // eat optional 'end' in one-line if expression
-      tokenizer_.consume();
-    }
-  }
+  // if (started_with_indent) {
+  //   if (tokenizer_.peak() != bon::tok_end) {
+  //     bon::logger.set_line_column(line_num, col_num);
+  //     bon::logger.error("syntax error", "expected 'end' after if expression");
+  //     return nullptr;
+  //   }
+  //   // eat 'end'
+  //   tokenizer_.consume();
+  // }
+  // else {
+  //   if (tokenizer_.peak() == bon::tok_end) {
+  //     // eat optional 'end' in one-line if expression
+  //     tokenizer_.consume();
+  //   }
+  // }
 
   return llvm::make_unique<IfExprAST>(line_num, col_num,
                                       std::move(condition_node),
@@ -866,28 +858,37 @@ std::unique_ptr<ExprAST> Parser::parse_while_loop() {
     return nullptr;
   }
 
-  // 'do' is optional, unless it's a single-line while loop
-  bool started_with_do = false;
-  if (tokenizer_.peak() == bon::tok_then) {
-    started_with_do = true;
-    // eat 'then'
-    tokenizer_.consume();
-  }
+  // // 'do' is optional, unless it's a single-line while loop
+  // bool started_with_do = false;
+  // if (tokenizer_.peak() == bon::tok_then) {
+  //   started_with_do = true;
+  //   // eat 'then'
+  //   tokenizer_.consume();
+  // }
 
-  // track whether this is multi-line,
-  //  to determine if 'do' or 'end' are required
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after 'while' condition");
+    return nullptr;
+  }
+  // eat ':'
+  tokenizer_.consume();
+
+
+  // track whether this is multi-line
   bool started_with_indent = false;
   if (tokenizer_.peak() == bon::tok_indent) {
     // eat expected indentation
     tokenizer_.consume();
     started_with_indent = true;
   }
-  else if (!started_with_do) {
-    bon::logger.set_line_column(line_num, col_num);
-    bon::logger.error("syntax error",
-                      "expected 'do' after single-line while loop");
-    return nullptr;
-  }
+  // else if (!started_with_do) {
+  //   bon::logger.set_line_column(line_num, col_num);
+  //   bon::logger.error("syntax error",
+  //                     "expected 'do' after single-line while loop");
+  //   return nullptr;
+  // }
 
   // parse 'do' expression body
   auto do_node = parse_expression();
@@ -920,20 +921,20 @@ std::unique_ptr<ExprAST> Parser::parse_while_loop() {
   if (started_with_indent) {
     // eat unindentation
     tokenizer_.consume();
-    if (tokenizer_.peak() != bon::tok_end) {
-      bon::logger.set_line_column(line_num, col_num);
-      bon::logger.error("syntax error", "expected 'end' after while expression");
-      return nullptr;
-    }
-    // eat 'end'
-    tokenizer_.consume();
+    // if (tokenizer_.peak() != bon::tok_end) {
+    //   bon::logger.set_line_column(line_num, col_num);
+    //   bon::logger.error("syntax error", "expected 'end' after while expression");
+    //   return nullptr;
+    // }
+    // // eat 'end'
+    // tokenizer_.consume();
   }
-  else {
-    if (tokenizer_.peak() == bon::tok_end) {
-      // eat optional 'end' in one-line if expression
-      tokenizer_.consume();
-    }
-  }
+  // else {
+  //   if (tokenizer_.peak() == bon::tok_end) {
+  //     // eat optional 'end' in one-line if expression
+  //     tokenizer_.consume();
+  //   }
+  // }
 
   return llvm::make_unique<WhileExprAST>(line_num, col_num,
                                       std::move(condition_node),
@@ -1042,13 +1043,11 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
     case bon::tok_true:
     case bon::tok_false:
       return parse_bool_expr();
-    case bon::tok_new:
-    case bon::tok_typeconstructor:
-      return parse_value_constructor_expr();
     case bon::tok_sizeof:
       return parse_sizeof_expr();
     case bon::tok_ptr_offset:
       return parse_ptr_offset_expr();
+    case bon::tok_new:
     case bon::tok_identifier:
       return parse_identifier_expr();
     case bon::tok_number:
@@ -1083,6 +1082,10 @@ std::unique_ptr<ExprAST> Parser::parse_primary() {
 bool Parser::is_unary_op(Token op) {
   return tokenizer_.peak() == tok_sub || tokenizer_.peak() == tok_add
          || tokenizer_.peak() == tok_mul;
+}
+
+bool Parser::is_type_constructor(std::string ident) {
+  return type_constructors_.find(ident) != type_constructors_.end();
 }
 
 std::unique_ptr<ExprAST> Parser::parse_unary() {
@@ -1348,23 +1351,11 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
   // bon::push_environment(local_env);
   // bon::AutoScope pop_env([]{ bon::pop_environment(); });
 
-  // eat 'type'
+  // eat 'class'
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != bon::tok_identifier) {
-    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
-    bon::logger.error("syntax error", "expected type name");
-    return nullptr;
-  }
-
-  std::string type_name = tokenizer_.identifier();
-  tokenizer_.consume();
-  auto variant_tvar = new bon::TypeVariable();
-  variant_tvar->variant_name_ = type_name;
-  // register type before parsing body to allow for recurrent type definitions
-  bon::register_type(type_name, variant_tvar);
-
-  std::map<std::string, bon::TypeVariable*> type_parameters;
+  // parse any optional type parameters
+  std::vector<std::string> type_param_names;
   if (tokenizer_.peak() == tok_lt) {
     // eat '<'
     tokenizer_.consume();
@@ -1375,12 +1366,10 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
         bon::logger.error("syntax error", "expected type name");
         return nullptr;
       }
-      auto new_tvar = new bon::TypeVariable();
-      std::string tparam_name = type_name + ":" + tokenizer_.identifier();
-      // std::string tparam_name = "'" + tokenizer_.identifier();
-      new_tvar->type_name_ = tparam_name;
-      type_parameters[tparam_name] = new_tvar;
+
+      type_param_names.push_back(tokenizer_.identifier());
       tokenizer_.consume();
+
       if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_gt) {
         bon::logger.set_line_column(tokenizer_.line_number(),
                                     tokenizer_.column());
@@ -1396,7 +1385,76 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
     // eat '>'
     tokenizer_.consume();
   }
-  else if (tokenizer_.peak() != bon::tok_indent) {
+
+  if (tokenizer_.peak() != bon::tok_identifier) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error", "expected class name");
+    return nullptr;
+  }
+
+  auto error_column = tokenizer_.column();
+  std::string type_name = tokenizer_.identifier();
+  tokenizer_.consume();
+  auto variant_tvar = new bon::TypeVariable();
+  variant_tvar->variant_name_ = type_name;
+  // TODO: per token file position tracking
+  bon::logger.set_line_column(tokenizer_.line_number(), error_column);
+  // register type before parsing body to allow for recurrent type definitions
+  bon::register_type(type_name, variant_tvar);
+
+  // TODO: shouldn't be creating type variables in parser,
+  //       only storing names
+  // create type variables for type params
+  std::map<std::string, bon::TypeVariable*> type_parameters;
+  for (auto type_param_name : type_param_names) {
+    auto new_tvar = new bon::TypeVariable();
+    std::string tparam_name = type_name + ":" + type_param_name;
+    // std::string tparam_name = "'" + type_param_name;
+    new_tvar->type_name_ = tparam_name;
+    type_parameters[tparam_name] = new_tvar;
+  }
+
+  // parse optional typeclasses this class implements
+  std::vector<std::string> typeclasses;
+  if (tokenizer_.peak() == tok_lparen) {
+    // eat '('
+    tokenizer_.consume();
+    while (tokenizer_.peak() != tok_rparen) {
+      if (tokenizer_.peak() != bon::tok_identifier) {
+        bon::logger.set_line_column(tokenizer_.line_number(),
+                                    tokenizer_.column());
+        bon::logger.error("syntax error", "expected typeclass name");
+        return nullptr;
+      }
+      auto new_tvar = new bon::TypeVariable();
+      typeclasses.push_back(tokenizer_.identifier());
+      tokenizer_.consume();
+      if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_rparen) {
+        bon::logger.set_line_column(tokenizer_.line_number(),
+                                    tokenizer_.column());
+        bon::logger.error("syntax error",
+                          "expected ',' or ')' in typeclass list");
+        return nullptr;
+      }
+      if (tokenizer_.peak() == tok_comma) {
+        // eat ','
+        tokenizer_.consume();
+      }
+    }
+    // eat ')'
+    tokenizer_.consume();
+  }
+
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after type definition");
+    return nullptr;
+  }
+  // eat ':'
+  tokenizer_.consume();
+
+  if (tokenizer_.peak() != bon::tok_indent) {
     bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
     bon::logger.error("syntax error", "expected indent after type declaration");
     return nullptr;
@@ -1407,27 +1465,42 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
 
   // parse constructors
   std::map<std::string, bon::TypeVariable*> type_constructors;
-  // TODO: fields only supported for non-variant objects
+  // fields only supported for non-variant objects
   IndexMap tcon_fields;
+  typedef std::map<std::string, std::unique_ptr<FunctionAST>> FunctionMap;
+  // typeclass name to function map
+  std::map<std::string, FunctionMap> funcs;
   while (tokenizer_.peak() != bon::tok_dedent) {
-    if (tokenizer_.peak() != bon::tok_typeconstructor) {
-      if (tokenizer_.peak() == bon::tok_identifier) {
-        bon::logger.set_line_column(tokenizer_.line_number(),
-                                    tokenizer_.column());
-        bon::logger.error("syntax error",
-                          "expected type constructor "
-                          "(first letter must be capitalized)");
-        return nullptr;
+    if (tokenizer_.peak() == tok_def) {
+      while (tokenizer_.peak() == tok_def) {
+        auto func = parse_definition();
+        if (func) {
+          state_.ordered_functions.push_back(func.get());
+          for (auto tclass_name : typeclasses) {
+            // add method if part of this typeclass
+            if (state_.typeclasses[tclass_name]->has_method(func->Proto->Name)) {
+              funcs[tclass_name][func->Proto->Name] = std::move(func);
+              break;
+            }
+          }
+        }
       }
+      continue;
+    }
+    if (tokenizer_.peak() != bon::tok_identifier) {
       bon::logger.set_line_column(tokenizer_.line_number(),
                                   tokenizer_.column());
       bon::logger.error("syntax error", "expected type constructor");
       return nullptr;
     }
 
+    auto token_column = tokenizer_.column();
     // eat constructor identifier
     std::string tcon_name = tokenizer_.identifier();
+    type_constructors_.insert(tcon_name);
     tokenizer_.consume();
+    // TODO: per token file position tracking
+    bon::logger.set_line_column(tokenizer_.line_number()+1, token_column);
 
     // parse constructor params
     std::vector<bon::TypeVariable*> tcon_params;
@@ -1512,6 +1585,7 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
       }
     }
   }
+
   // bon::unify(variant_tvar, bon::build_variant_type(type_constructors));
   bon::build_variant_type(variant_tvar, type_constructors, tcon_fields);
   // force building name to make generic
@@ -1530,13 +1604,33 @@ std::unique_ptr<TypeAST> Parser::parse_type() {
   // eat unindent
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != bon::tok_end) {
-    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
-    bon::logger.error("syntax error", "expected 'end' after type declaration");
-    return nullptr;
+  if (!funcs.empty()) {
+    // TODO: this syntactic sugar only works for typeclasses with 1 type
+    //       param, so need to check for that
+    TypeEnv param_types;
+    param_types[type_name] = new TypeVariable();
+    TypeMap emptymap;
+    std::string tclass_name;
+    for (auto tclass_name : typeclasses) {
+      auto impl = llvm::make_unique<TypeclassImplAST>(
+                                              tclass_name,
+                                              line_num, col_num,
+                                              param_types, emptymap,
+                                              std::move(funcs[tclass_name]));
+      // add implementation to typeclass
+      auto & impls = state_.typeclasses[tclass_name]->impls;
+      // allow overriding implementation by pushing to front
+      impls.insert(impls.begin(), std::move(impl));
+    }
   }
-  // eat 'end'
-  tokenizer_.consume();
+
+  // if (tokenizer_.peak() != bon::tok_end) {
+  //   bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+  //   bon::logger.error("syntax error", "expected 'end' after type declaration");
+  //   return nullptr;
+  // }
+  // // eat 'end'
+  // tokenizer_.consume();
 
   return llvm::make_unique<TypeAST>(type_name, line_num, col_num, variant_tvar);
 }
@@ -1551,24 +1645,20 @@ std::unique_ptr<FunctionAST> Parser::parse_definition() {
   if (!proto_node)
     return nullptr;
 
-  bool had_colon = false;
-  if (tokenizer_.peak() == tok_colon) {
-    had_colon = true;
-    // eat ':'
-    tokenizer_.consume();
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after function prototype");
+    return nullptr;
   }
+  // eat ':'
+  tokenizer_.consume();
 
   bool started_with_indent = false;
   if (tokenizer_.peak() == bon::tok_indent) {
     // eat expected indentation
     tokenizer_.consume();
     started_with_indent = true;
-  }
-  else if (!had_colon) {
-    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
-    bon::logger.error("syntax error",
-                      "expected ':' after prototype for single-line function");
-    return nullptr;
   }
 
   bool expecting_return = tokenizer_.peak() == bon::tok_return;
@@ -1621,20 +1711,20 @@ std::unique_ptr<FunctionAST> Parser::parse_definition() {
       }
       // eat unindentation
       tokenizer_.consume();
-      if (tokenizer_.peak() != bon::tok_end) {
-        bon::logger.set_line_column(line_num, col_num);
-        bon::logger.error("syntax error", "expected 'end' after function body");
-        return nullptr;
-      }
-      // eat 'end'
-      tokenizer_.consume();
+      // if (tokenizer_.peak() != bon::tok_end) {
+      //   bon::logger.set_line_column(line_num, col_num);
+      //   bon::logger.error("syntax error", "expected 'end' after function body");
+      //   return nullptr;
+      // }
+      // // eat 'end'
+      // tokenizer_.consume();
     }
-    else {
-      if (tokenizer_.peak() == bon::tok_end) {
-        // eat optional 'end' on single line function
-        tokenizer_.consume();
-      }
-    }
+    // else {
+    //   if (tokenizer_.peak() == bon::tok_end) {
+    //     // eat optional 'end' on single line function
+    //     tokenizer_.consume();
+    //   }
+    // }
 
     auto func = llvm::make_unique<FunctionAST>(line_num, col_num,
                                                std::move(proto_node),
@@ -1668,19 +1758,11 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
   size_t col_num = tokenizer_.column();
   update_tok_position();
 
-  // eat 'class'
+  // eat 'typeclass'
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != tok_typeconstructor) {
-    // give a hint about capitalization if they mistakenly
-    //  used a lowercase typeclass name
-    if (tokenizer_.peak() == tok_identifier) {
-      logger.error("syntax error",
-                   "expected class name after 'class' (must be capitalized)");
-    }
-    else {
-      logger.error("syntax error", "expected class name after 'class'");
-    }
+  if (tokenizer_.peak() != tok_identifier) {
+    logger.error("syntax error", "expected class name after 'typeclass'");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
@@ -1689,33 +1771,24 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
   // eat identifier
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != tok_lt) {
+  if (tokenizer_.peak() != tok_lparen) {
     logger.error("syntax error",
-                 "expected '<' after 'class " + class_name + "'");
+                 "expected '(' after 'class " + class_name + "'");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
 
-  // eat '<'
+  // eat '('
   tokenizer_.consume();
 
-  // array of type variable names e.g. ["T"] in class Num<T>
+  // array of type variable names e.g. ["T"] in typeclass Num(T)
   std::vector<std::string> params;
   // map from type variable name to type variable
   TypeEnv param_types;
 
-  while (tokenizer_.peak() != tok_gt) {
-    if (tokenizer_.peak() != tok_typeconstructor) {
-      // give a hint about capitalization if they mistakenly
-      //  used a lowercase variable name
-      if (tokenizer_.peak() == tok_identifier) {
-        logger.error("syntax error",
-                     "expected type variable (must be capitalized)");
-      }
-      else {
-        logger.error("syntax error", "expected type variable");
-        break;
-      }
+  while (tokenizer_.peak() != tok_rparen) {
+    if (tokenizer_.peak() != tok_identifier) {
+      logger.error("syntax error", "expected type variable");
       // eat bad token, but continue to avoid too many errors
       tokenizer_.consume();
     }
@@ -1727,8 +1800,8 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
       // eat param name
       tokenizer_.consume();
     }
-    if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_gt) {
-      logger.error("syntax error", "expected ',' or '>' in type variable list");
+    if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_rparen) {
+      logger.error("syntax error", "expected ',' or ')' in type variable list");
       break;
     }
 
@@ -1738,10 +1811,19 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
   }
 
   // if this isn't true, we must have failed out of the above loop
-  if (tokenizer_.peak() == tok_gt) {
-    // eat '>'
+  if (tokenizer_.peak() == tok_rparen) {
+    // eat ')'
     tokenizer_.consume();
   }
+
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after 'typeclass'");
+    return nullptr;
+  }
+  // eat ':'
+  tokenizer_.consume();
 
   if (tokenizer_.peak() == bon::tok_indent) {
     // eat expected indentation
@@ -1749,7 +1831,7 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
   }
   else {
     update_tok_position();
-    bon::logger.error("syntax error", "expected indent after class prototype");
+    bon::logger.error("syntax error", "expected indent after typeclass prototype");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
@@ -1761,19 +1843,9 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
     // eat 'def'
     tokenizer_.consume();
     auto proto = parse_prototype();
-    if (tokenizer_.peak() != tok_sep) {
-      update_tok_position();
-      logger.error("syntax error",
-                   "expected ';' after class member declaration");
-      // intentionally continue to try to reduce number of errors
-      // return nullptr;
-      continue;
-    }
     TypeVariable* fresh_var = new TypeVariable();
     unify(fresh_var, proto->type_var_);
     method_types[proto->Name] = fresh_var;
-    // eat ';'
-    tokenizer_.consume();
   }
 
   param_types = pop_typeclass_environment();
@@ -1784,22 +1856,13 @@ std::unique_ptr<TypeclassAST> Parser::parse_typeclass() {
   }
   else {
     update_tok_position();
-    bon::logger.error("syntax error", "expected unindent after class members");
+    bon::logger.error("syntax error", "expected unindent after typeclass members");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
-
-  if (tokenizer_.peak() != bon::tok_end) {
-    update_tok_position();
-    bon::logger.error("syntax error", "expected 'end' after class definition");
-    // intentionally continue to try to reduce number of errors
-    // return nullptr;
-  }
-  // eat 'end'
-  tokenizer_.consume();
 
   return llvm::make_unique<TypeclassAST>(class_name, line_num, col_num,
-                                         params, param_types, method_types);;
+                                         params, param_types, method_types);
 }
 
 std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
@@ -1810,16 +1873,8 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
   // eat 'impl'
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != tok_typeconstructor) {
-    // give a hint about capitalization if they mistakenly
-    //  used a lowercase typeclass name
-    if (tokenizer_.peak() == tok_identifier) {
-      logger.error("syntax error",
-                   "expected class name after 'impl' (must be capitalized)");
-    }
-    else {
-      logger.error("syntax error", "expected class name after 'impl'");
-    }
+  if (tokenizer_.peak() != tok_identifier) {
+    logger.error("syntax error", "expected typeclass name after 'impl'");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
@@ -1828,45 +1883,34 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
   // eat identifier
   tokenizer_.consume();
 
-  if (tokenizer_.peak() != tok_lt) {
+  if (tokenizer_.peak() != tok_lparen) {
     logger.error("syntax error",
-                 "expected '<' after 'impl " + class_name + "'");
+                 "expected '(' after 'impl " + class_name + "'");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
 
-  // eat '<'
+  // eat ')'
   tokenizer_.consume();
 
-  // array of type variable names e.g. ["T"] in class Num<T>
-  std::vector<std::string> params;
   // map from type variable name to type variable
   TypeEnv param_types;
 
-  while (tokenizer_.peak() != tok_gt) {
+  while (tokenizer_.peak() != tok_rparen) {
     if (tokenizer_.peak() != tok_identifier) {
-      // give a hint about capitalization if they mistakenly
-      //  used a generic type variable name
-      if (tokenizer_.peak() == tok_typeconstructor) {
-        logger.error("syntax error",
-                     "expected concrete type (got a type variable instead)");
-      }
-      else {
-        logger.error("syntax error", "expected concrete type name");
-      }
+      logger.error("syntax error", "expected concrete type name");
       // eat bad token, but continue to avoid too many errors
       tokenizer_.consume();
     }
     else {
       std::string param_name = tokenizer_.identifier();
-      params.push_back(param_name);
       param_types[param_name] = new TypeVariable();
 
       // eat type name
       tokenizer_.consume();
     }
-    if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_gt) {
-      logger.error("syntax error", "expected ',' or '>' in type list");
+    if (tokenizer_.peak() != tok_comma && tokenizer_.peak() != tok_rparen) {
+      logger.error("syntax error", "expected ',' or ')' in type list");
     }
 
     if (tokenizer_.peak() == tok_comma) {
@@ -1875,10 +1919,20 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
   }
 
   // if this isn't true, we must have failed out of the above loop
-  if (tokenizer_.peak() == tok_gt) {
-    // eat '>'
+  if (tokenizer_.peak() == tok_rparen) {
+    // eat ')'
     tokenizer_.consume();
   }
+
+  if (tokenizer_.peak() != tok_colon) {
+    bon::logger.set_line_column(tokenizer_.line_number(), tokenizer_.column());
+    bon::logger.error("syntax error",
+                      "expected ':' after 'impl' " + class_name + "(...)");
+    // intentionally continue to try to reduce number of errors
+    // return nullptr;
+  }
+  // eat ':'
+  tokenizer_.consume();
 
   if (tokenizer_.peak() == bon::tok_indent) {
     // eat expected indentation
@@ -1886,7 +1940,7 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
   }
   else {
     update_tok_position();
-    bon::logger.error("syntax error", "expected indent after class prototype");
+    bon::logger.error("syntax error", "expected indent after impl start");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
@@ -1906,19 +1960,11 @@ std::unique_ptr<TypeclassImplAST> Parser::parse_typeclass_impl() {
   }
   else {
     update_tok_position();
-    bon::logger.error("syntax error", "expected unindent after class members");
+    bon::logger.error("syntax error", "expected unindent after impl end");
     // intentionally continue to try to reduce number of errors
     // return nullptr;
   }
 
-  if (tokenizer_.peak() != bon::tok_end) {
-    update_tok_position();
-    bon::logger.error("syntax error", "expected 'end' after class impl");
-    // intentionally continue to try to reduce number of errors
-    // return nullptr;
-  }
-  // eat 'end'
-  tokenizer_.consume();
   TypeMap emptymap;
   return llvm::make_unique<TypeclassImplAST>(class_name, line_num, col_num,
                                              param_types, emptymap,

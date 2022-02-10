@@ -3,112 +3,95 @@ cdef memcpy(pointer, pointer, int) -> ()
 cdef free(pointer) -> ()
 cdef null_ptr() -> pointer
 
-type vec
-    Vec(size:int, capacity:int, data:pointer)
-end
+class vec:
+  Vec(size:int, capacity:int, data:pointer)
 
-def vec()
-    v = new Vec(0, 0, null_ptr())
-    return v
-end
+def vec():
+  v = new Vec(0, 0, null_ptr())
+  return v
 
-def push(v:vec, *item) -> ()
-  if v.size+1 > v.capacity
+def push(v:vec, *item) -> ():
+  if v.size+1 > v.capacity:
     old_size = sizeof(item) * v.capacity
-    new_size = if v.capacity == 0 then sizeof(item) * 2 else old_size * 2
+    new_size = if v.capacity == 0: sizeof(item) * 2 else: old_size * 2
     new_data = malloc(new_size)
     memcpy(new_data, v.data, old_size)
     free(v.data)
     v.data = new_data
-    v.capacity = if v.capacity == 0 then 2 else v.capacity * 2
-  end
+    v.capacity = if v.capacity == 0: 2 else: v.capacity * 2
   ptr_offset(v.data, v.size) = item
   v.size = v.size + 1
 
   return ()
-end
 
-def at(v:vec, index:int)
-  if index < v.size
+def at(v:vec, index:int):
+  if index < v.size:
     new Some(ptr_offset(v.data, index))
-  else
+  else:
     new None
-  end
-end
 
-def unsafe_at(v:vec, index:int)
-  if index >= v.size
+def unsafe_at(v:vec, index:int):
+  if index >= v.size:
     # TODO: this is still unsafe if size==0
     # ideally this should be something like:
     #  out_of_bounds<pointer_element_type(v.data)>()
     out_of_bounds(ptr_offset(v.data, 0))
-  else
+  else:
     ptr_offset(v.data, index)
-  end
-end
 
-def erase(v:vec, index:int) -> ()
-  if v.size > index+1
+def erase(v:vec, index:int) -> ():
+  if v.size > index+1:
     cur = index+1
-    while cur < v.size
+    while cur < v.size:
       v[cur-1] = v[cur]
       cur = cur + 1
-    end
-  end
   v.size = v.size - 1
 
   return ()
-end
 
-def swap(v:vec, i:int, j:int)
+def swap(v:vec, i:int, j:int):
   tmp = ptr_offset(v.data, i)
   ptr_offset(v.data, i) = ptr_offset(v.data, j)
   ptr_offset(v.data, j) = tmp
-end
 
-def set(v:vec, i:int, item) -> ()
-  if i < v.size
+def set(v:vec, i:int, item) -> ():
+  if i < v.size:
     ptr_offset(v.data, i) = item
-  end
-end
 
-def len(v:vec) -> int
-  v.size
-end
+  return ()
+
+def len(v:vec) -> int:
+  return v.size
 
 # convenience functions to simplify compiler
 # TODO: this is a temporary solution
-def vec1(arg1)
+def vec1(arg1):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     return v
-end
 
-def vec2(arg1, arg2)
+def vec2(arg1, arg2):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
     return v
-end
 
-def vec3(arg1, arg2, arg3)
+def vec3(arg1, arg2, arg3):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
     v.push(arg3)
     return v
-end
 
-def vec4(arg1, arg2, arg3, arg4)
+def vec4(arg1, arg2, arg3, arg4):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
     v.push(arg3)
     v.push(arg4)
     return v
-end
 
-def vec5(arg1, arg2, arg3, arg4, arg5)
+def vec5(arg1, arg2, arg3, arg4, arg5):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -116,9 +99,8 @@ def vec5(arg1, arg2, arg3, arg4, arg5)
     v.push(arg4)
     v.push(arg5)
     return v
-end
 
-def vec6(arg1, arg2, arg3, arg4, arg5, arg6)
+def vec6(arg1, arg2, arg3, arg4, arg5, arg6):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -127,9 +109,8 @@ def vec6(arg1, arg2, arg3, arg4, arg5, arg6)
     v.push(arg5)
     v.push(arg6)
     return v
-end
 
-def vec7(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+def vec7(arg1, arg2, arg3, arg4, arg5, arg6, arg7):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -139,9 +120,8 @@ def vec7(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
     v.push(arg6)
     v.push(arg7)
     return v
-end
 
-def vec8(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+def vec8(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -152,9 +132,8 @@ def vec8(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
     v.push(arg7)
     v.push(arg8)
     return v
-end
 
-def vec9(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+def vec9(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -166,9 +145,8 @@ def vec9(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
     v.push(arg8)
     v.push(arg9)
     return v
-end
 
-def vec10(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+def vec10(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -181,9 +159,8 @@ def vec10(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
     v.push(arg9)
     v.push(arg10)
     return v
-end
 
-def vec11(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11)
+def vec11(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -197,9 +174,8 @@ def vec11(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11)
     v.push(arg10)
     v.push(arg11)
     return v
-end
 
-def vec12(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12)
+def vec12(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -214,9 +190,8 @@ def vec12(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg11)
     v.push(arg12)
     return v
-end
 
-def vec13(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13)
+def vec13(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -232,9 +207,8 @@ def vec13(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg12)
     v.push(arg13)
     return v
-end
 
-def vec14(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14)
+def vec14(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -251,9 +225,8 @@ def vec14(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg13)
     v.push(arg14)
     return v
-end
 
-def vec15(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15)
+def vec15(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -271,9 +244,8 @@ def vec15(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg14)
     v.push(arg15)
     return v
-end
 
-def vec16(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16)
+def vec16(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -292,9 +264,8 @@ def vec16(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg15)
     v.push(arg16)
     return v
-end
 
-def vec17(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17)
+def vec17(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17):
     v = new Vec(0, 0, null_ptr())
     v.push(arg1)
     v.push(arg2)
@@ -314,4 +285,3 @@ def vec17(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, ar
     v.push(arg16)
     v.push(arg17)
     return v
-end

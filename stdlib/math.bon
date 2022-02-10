@@ -2,6 +2,9 @@ cdef pow(b:float, e:float) -> float
 cdef sqrt(x:float) -> float
 cdef sin(x:float) -> float
 cdef cos(x:float) -> float
+cdef acos(x:float) -> float
+cdef tan(x:float) -> float
+cdef atan(x:float) -> float
 cdef log(x:float) -> float
 cdef fabs(x:float) -> float
 cdef abs(x:int) -> int
@@ -10,41 +13,29 @@ cdef int_to_string(val:int) -> string
 cdef float_to_int(val:float) -> int
 cdef int_to_float(val:int) -> float
 
-def operator**(a,n)
-    pow(a, n)
-end
+def operator**(a,n):
+  return pow(a, n)
 
-class Num<T>
-  def unary-(x:T)->T;
-end
+typeclass Num(T):
+  def unary-(x:T) -> T
 
-impl Num<float>
-  def unary-(x)
-      0.0 - x
-  end
-end
+impl Num(float):
+  def unary-(x):
+    return 0.0 - x
 
-impl Num<int>
-  def unary-(x)
-      0 - x
-  end
-end
+impl Num(int):
+  def unary-(x):
+    return 0 - x
 
-impl BoundsCheck<int>
-  def out_of_bounds(template:int) -> int
+impl BoundsCheck(int):
+  def out_of_bounds(template:int) -> int:
     template
     return 0
-  end
-end
 
-impl Integer<float>
-  def to_integer(x:float) -> int
-    float_to_int(x)
-  end
-end
+impl Integer(float):
+  def to_integer(x:float) -> int:
+    return float_to_int(x)
 
-impl Float<int>
-  def to_float(x:int) -> float
-    int_to_float(x)
-  end
-end
+impl Float(int):
+  def to_float(x:int) -> float:
+    return int_to_float(x)

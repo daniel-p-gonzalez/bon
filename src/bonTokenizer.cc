@@ -7,6 +7,7 @@ L*----------------------------------------------------------------------------*/
 #include "bonTokenizer.h"
 #include "bonLogger.h"
 
+#include <iostream>
 #include <cstdio>
 #include <cctype>
 #include <map>
@@ -22,6 +23,25 @@ int Tokenizer::next_char() {
   }
 
   return chr;
+}
+
+void Tokenizer::eat_comment() {
+  // eat until end of line or file.
+  do
+    last_char_ = next_char();
+  while (last_char_ != EOF && last_char_ != '\n' && last_char_ != '\r');
+
+  at_line_start_ = true;
+}
+
+Token Tokenizer::eof_token() {
+  if (current_token_ == tok_eof) {
+    // eat eof if we've already processed it
+    // TODO: this might cause problems on compile error
+    last_char_ = next_char();
+    return next_token();
+  }
+  return tok_eof;
 }
 
 Token Tokenizer::next_token() {
@@ -52,6 +72,7 @@ Token Tokenizer::next_token() {
   if (last_char_ == '\n') {
     at_line_start_ = true;
   }
+  bool edge_case = false;
 
   if (at_line_start_) {
     int col = 0;
@@ -71,41 +92,49 @@ Token Tokenizer::next_token() {
       }
       last_char_ = next_char();
     }
-    if (last_char_ == '#' || last_char_ == '\n') {
-      if (last_char_ == '\n') {
-        at_line_start_ = true;
+    if (last_char_ == '#') {
+      eat_comment();
+      if (last_char_ == EOF) {
+        return eof_token();
       }
-      blankline = true;
+      return next_token();
     }
-    if (!blankline) {
-      if (col > indent_sizes_[indent_level_]) {
-        if (indent_level_ >= MAX_INDENTS+1) {
-          bon::logger.error("error", "Exceeded max indent level (20)");
-        }
-        ++indent_level_;
-        indent_sizes_[indent_level_] = col;
-        return tok_indent;
+    if (last_char_ == '\n') {
+      at_line_start_ = true;
+      while (last_char_ == '\n') {
+        last_char_ = next_char();
       }
-      else if (col < indent_sizes_[indent_level_]) {
+      return next_token();
+    }
+    if (col > indent_sizes_[indent_level_]) {
+      if (indent_level_ >= MAX_INDENTS+1) {
+        bon::logger.set_line_column(pos_.line, col);
+        bon::logger.error("error", "Exceeded max indent level (20)");
+      }
+      ++indent_level_;
+      indent_sizes_[indent_level_] = col;
+      return tok_indent;
+    }
+    else if (col < indent_sizes_[indent_level_]) {
+      --indent_level_;
+      while (col < indent_sizes_[indent_level_] && indent_level_ > 0) {
+        // token_cache.push_back(tok_dedent);
         --indent_level_;
-        while (col < indent_sizes_[indent_level_] && indent_level_ > 0) {
-          // token_cache.push_back(tok_dedent);
-          --indent_level_;
-          token_cache.push_back(tok_dedent);
-        }
-        if (indent_sizes_[indent_level_] != col) {
-          // TokError("unindent does not match any outer indentation level.");
-          // minimize future complaining about the same error for case
-          //  where an entire block is misaligned
-          indent_sizes_[indent_level_] = col;
-        }
-        if (!skip_next_dedent_) {
-          return tok_dedent;
-        }
-        else {
-          skip_next_dedent_ = false;
-          return next_token();
-        }
+        token_cache.push_back(tok_dedent);
+      }
+      if (indent_sizes_[indent_level_] != col) {
+        edge_case = true;
+        // TokError("unindent does not match any outer indentation level.");
+        // minimize future complaining about the same error for case
+        //  where an entire block is misaligned
+        indent_sizes_[indent_level_] = col;
+      }
+      if (!skip_next_dedent_) {
+        return tok_dedent;
+      }
+      else {
+        skip_next_dedent_ = false;
+        return next_token();
       }
     }
   }
@@ -122,7 +151,7 @@ Token Tokenizer::next_token() {
     }
   }
 
-  pos_.column = col_;
+  pos_.column = col_ == -1 ? 0 : col_;
 
   // string literal
   if (last_char_ == '"') {
@@ -141,6 +170,7 @@ Token Tokenizer::next_token() {
           continue;
         }
         else {
+          bon::logger.set_line_column(pos_.line, col_);
           bon::logger.error("error", "unrecognized escape sequence");
         }
       }
@@ -171,8 +201,8 @@ Token Tokenizer::next_token() {
       return tok_def;
     if (identifier_ == "new")
       return tok_new;
-    if (identifier_ == "class")
-      return tok_class;
+    if (identifier_ == "typeclass")
+      return tok_typeclass;
     if (identifier_ == "impl")
       return tok_impl;
     if (identifier_ == "cdef")
@@ -195,8 +225,8 @@ Token Tokenizer::next_token() {
       return tok_and;
     if (identifier_ == "or")
       return tok_or;
-    if (identifier_ == "type")
-      return tok_type;
+    if (identifier_ == "class")
+      return tok_class;
     if (identifier_ == "sizeof")
       return tok_sizeof;
     if (identifier_ == "ptr_offset")
@@ -218,7 +248,7 @@ Token Tokenizer::next_token() {
       return tok_false;
     }
     if (isupper(identifier_[0])) {
-      return tok_typeconstructor;
+      return tok_identifier;
     }
     return tok_identifier;
   }
@@ -231,6 +261,7 @@ Token Tokenizer::next_token() {
     do {
       if (last_char_ == '.') {
         if (is_float) {
+          bon::logger.set_line_column(pos_.line, col_);
           bon::logger.error("error", "malformed floating point number");
         }
         is_float = true;
@@ -254,31 +285,22 @@ Token Tokenizer::next_token() {
 
   // comment
   if (last_char_ == '#') {
-    // Comment until end of line.
-    do
-      last_char_ = next_char();
-    while (last_char_ != EOF && last_char_ != '\n' && last_char_ != '\r');
-
-    at_line_start_ = true;
-
-    if (last_char_ != EOF)
+    eat_comment();
+    if (last_char_ != EOF) {
       return next_token();
+    }
   }
 
   // check for end of file
   if (last_char_ == EOF) {
-    if (current_token_ == tok_eof) {
-      // eat eof if we've already processed it
-      // TODO: this might cause problems on compile error
-      last_char_ = next_char();
-      return next_token();
-    }
-    return tok_eof;
+    return eof_token();
   }
 
   if (last_char_ == '\n') {
-    bon::logger.error("internal error", "mishandled newline");
+    bon::logger.error("internal error", "unexpected newline");
     at_line_start_ = true;
+    last_char_ = next_char();
+    return next_token();
   }
 
   // Cons operator
@@ -380,6 +402,7 @@ Token Tokenizer::next_token() {
     if (last_char_ == ']') {
       last_char_ = next_char();
       identifier_ = "vec";
+      // token_cache is a stack, hence seemingly backwards {')', '('}
       token_cache.push_back(tok_rparen);
       token_cache.push_back(tok_lparen);
       return tok_identifier;
@@ -489,7 +512,7 @@ std::string Tokenizer::token_type(Token token) {
       return "'def'";
     case tok_new:
       return "'new'";
-    case tok_class:
+    case tok_typeclass:
       return "'class'";
     case tok_impl:
       return "'impl'";
@@ -589,10 +612,8 @@ std::string Tokenizer::token_type(Token token) {
       return "'struct'";
     case tok_true:
       return "'true'";
-    case tok_type:
+    case tok_class:
       return "'type'";
-    case tok_typeconstructor:
-      return "<constructor>";
     case tok_unary:
       return "'unary'";
     case tok_unit:

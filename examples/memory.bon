@@ -1,55 +1,43 @@
 # Example of automatic memory management
 
-type custom_number
+class custom_number:
   One
   Two
   Many
-end
 
-impl Print<custom_number>
-  def print(self:custom_number) -> ()
-    match self
+impl Print(custom_number):
+  def print(self:custom_number) -> ():
+    match self:
       One => print("One")
       Two => print("Two")
       Many => print("Many")
-    end
-  end
-end
 
-impl Object<custom_number>
-  def delete(self:custom_number) -> ()
+impl Object(custom_number):
+  def delete(self:custom_number) -> ():
     print("Deleting custom_number:")
     print(self)
-  end
-end
 
-impl Object<option>
-  def delete(self) -> ()
+impl Object(Option):
+  def delete(self) -> ():
     print("Deleting option:")
-    match self
+    match self:
       Some(a) => print("Some(" ++ str(a) ++ ")")
       None => print("None")
-    end
-  end
-end
 
-def bar()
+def bar():
   x = new Some(5)
   return x
-end
 
-def foobar()
+def foobar():
   # this will have delete called on it when function exits
   j = new One
   # does not have delete called on it, as it's not a persistent object
   k = Two
-end
 
-def main() -> ()
+def main() -> ():
   foobar()
   y = bar()
 
   return ()
-end
 
 main()

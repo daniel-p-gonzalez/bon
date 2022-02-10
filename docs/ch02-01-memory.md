@@ -31,8 +31,8 @@ thus allowing memory to be automatically freed.
 
 Example showing all of the rules in action:
 
-``` ruby
-def foo(arg)
+```python
+def foo(arg):
   # stack allocated local:
   a = Some([5,26])
 
@@ -77,7 +77,6 @@ def foo(arg)
   # OK: only heap allocated objects can be returned.
   # Since e2 and f go out of scope here, they are freed
   return d
-end
 ```
 
 Pattern matching has almost the same semantics as a function call,
@@ -91,25 +90,22 @@ If pattern is heap allocated:
 Else if pattern is a local object:
 - can return another local stack allocated object
 
-``` ruby
-def bar(arg1, arg2)
+```python
+def bar(arg1, arg2):
   # OK: Pair is local, constructed from local args
-  x = match Pair(arg1, arg2)
+  x = match Pair(arg1, arg2):
     # also OK: we can alias args as they are local
     Pair(King, second) => second
     Pair(first, _) => first
-  end
 
   y = new Some("Hello!")
   # y is borrowed here
-  match y
+  match y:
     # ERROR: cannot alias persistent object's fields in expression result
     # Some(a) => a
     # OK: print just returns "()", which is a primitive
     Some(a) => print(a)
     None => print("Impossible!")
-  end
-end
 ```
 
 In a nutshell, safe ownership is acheived by ensuring we can never alias to a persistent object in the same scope
@@ -121,19 +117,17 @@ For solving the problem of relations between objects, e.g. a graph:
 
 Allocations can be assigned to an arena, and aliasing within the arena is safe.
 
-``` ruby
-type graph
+``` python
+class graph:
   Graph(nodes:map, edges:vec)
-end
 
 graph_arena = new arena()
 g = new(graph_arena) Graph(...)
 
-def add_edge(g, node1, node2)
+def add_edge(g, node1, node2):
   # new(g) allocates edge in same arena as g
   # allowing aliasing of nodes
   g.edges.push(new(g) Edge(g.nodes[node1], g.nodes[node2]))
-end
 
 # graph_arena must remain in scope for as long as any member of the arena
 # and everything within the area is freed when it goes out of scope

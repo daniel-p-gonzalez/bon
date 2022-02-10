@@ -109,7 +109,11 @@ void Logger::error(std::string type, std::string message) {
 std::string Logger::get_context() {
     // TODO: this is obviously not good.
     //       need to buffer lines in lexer, and set them in logger
-    std::ifstream fin(current_file_);
+    std::ifstream fin(file_prefix_ + current_file_);
+    if (fin.fail()) {
+        std::cout << "File not found: " << file_prefix_ + current_file_ << std::endl;
+        return "";
+    }
     size_t i = 0;
     for (std::string line; getline(fin, line); ) {
         ++i;
@@ -125,7 +129,7 @@ void Logger::output_message(std::string type, std::string type_color,
     const std::string bold = "\x1b[1m";
     const std::string white = "\x1b[97m";
     const std::string endclr = "\x1b[0m";
-    std::cout << bold << white << current_file_ << ":" << line_num_ << ":"
+    std::cout << bold << white << file_prefix_ + current_file_ << ":" << line_num_ << ":"
               << column_num_+1 << ": " << endclr << endclr;
     std::cout << bold << type_color << type << ": " << endclr << endclr;
     std::cout << bold << white << message << endclr << endclr << std::endl;

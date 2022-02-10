@@ -1,12 +1,3 @@
-// test run with:
-// time (clang++ -O3 --std=c++11 benchmarks/sort.cc -o sortcc && ./sortcc)
-// Finished in 74ms (time for sort only)
-
-// (time for full compile and run)
-// real    0m0.457s
-// user    0m0.387s
-// sys     0m0.051s
-
 #include <iostream>
 #include <stdint.h>
 #include <vector>

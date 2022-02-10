@@ -1,28 +1,36 @@
 # implement Print for conversion to string
-impl Print<float>
-  def to_string(x:float)
+impl Print(float):
+  def to_string(x:float):
     return float_to_string(x)
-  end
 
-  def print(x:float) -> ()
+  def print(x:float) -> ():
     print(float_to_string(x))
-  end
 
-  def write(x:float) -> ()
+  def write(x:float) -> ():
     write(float_to_string(x))
-  end
-end
 
-impl Print<int>
-  def to_string(x:int)
+impl Print(int):
+  def to_string(x:int):
     return int_to_string(x)
-  end
 
-  def print(x:int) -> ()
+  def print(x:int) -> ():
     print(int_to_string(x))
-  end
 
-  def write(x:int) -> ()
+  def write(x:int) -> ():
     write(int_to_string(x))
-  end
-end
+
+impl Print(bool):
+  def print(x:bool) -> ():
+    match x:
+      true => print("true")
+      false => print("false")
+
+  def write(x:bool) -> ():
+    match x:
+      true => write("true")
+      false => write("false")
+
+  def to_string(x:bool) -> string:
+    match x:
+      true => "true"
+      false => "false"

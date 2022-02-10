@@ -1,40 +1,26 @@
-type option<a>
+class<a> Option:
     None
     Some(a)
-end
 
-impl Eq<option>
-  def operator==(a:option, b:option) -> bool
-    match a
+impl Eq(Option):
+  def operator==(a:Option, b:Option) -> bool:
+    match a:
       Some(x) =>
-        match b
+        match b:
           Some(y) => x == y
           None => false
-        end
-      end
       None =>
-        match b
+        match b:
           None => true
           _ => false
-        end
-      end
-    end
-  end
 
-  def operator!=(a:option, b:option) -> bool
-    match a
+  def operator!=(a:Option, b:Option) -> bool:
+    match a:
       Some(x) =>
-        match b
+        match b:
           Some(y) => x == y
           None => true
-        end
-      end
       None =>
-        match b
+        match b:
           None => false
           _ => true
-        end
-      end
-    end
-  end
-end

@@ -2,19 +2,15 @@ cdef open_file(filename:string, mode:string) -> cpointer
 cdef get_line_internal(file:cpointer) -> string
 cdef is_nullptr(ptr:cpointer) -> bool
 
-type file_handle
+class file_handle:
   FileHandle(fhandle:cpointer)
-end
 
-def open(filename, mode) -> option
+def open(filename, mode) -> Option:
   file = open_file(filename, mode)
-  if is_nullptr(file)
+  if is_nullptr(file):
     None
-  else
+  else:
     new Some(new FileHandle(file))
-  end
-end
 
-def get_line(file) -> string
-  get_line_internal(file.fhandle)
-end
+def get_line(file) -> string:
+  return get_line_internal(file.fhandle)

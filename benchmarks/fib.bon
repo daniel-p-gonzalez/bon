@@ -1,19 +1,9 @@
-# test run with:
-# $ time bon benchmarks/fib.bon
-# Calculating the 45th fibonacci number:
-# 1134903170
-#
-# real    0m5.948s
-# user    0m5.932s
-# sys     0m0.008s
-
-def fibonacci(n)
-    if n < 2
+def fibonacci(n):
+    if n < 2:
         n
-    else
+    else:
         fibonacci(n-1) + fibonacci(n-2)
-    end
-end
 
 print("Calculating the 45th fibonacci number:")
+# Should be 1134903170
 print(fibonacci(45))

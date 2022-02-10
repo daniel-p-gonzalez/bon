@@ -1,33 +1,23 @@
-class Norm<T>
-  def norm(v:T) -> float;
-end
+typeclass Norm(T):
+  def norm(self: T) -> float
 
-type point2d
+class Point2D(Norm):
   Point2D(x:float, y:float)
-end
 
-impl Norm<point2d>
-  def norm(v:point2d) -> float
-    sqrt(v.x * v.x + v.y * v.y)
-  end
-end
+  def norm(self: Point2D) -> float:
+    return sqrt(self.x * self.x + self.y * self.y)
 
-type point3d
+class Point3D(Norm):
   Point3D(x:float, y:float, z:float)
-end
 
-impl Norm<point3d>
-  def norm(v:point3d) -> float
-    sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
-  end
-end
+  def norm(self: Point3D) -> float:
+    return sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
 
-def main()
+def main():
   print("Test of typeclasses:")
   p = Point2D(2.0, 1.5)
   print(p.norm())
   p2 = Point3D(2.0, 1.5, 3.0)
   print(p2.norm())
-end
 
 main()

@@ -1,9 +1,7 @@
-def main()
+def main():
   i = 0
-  while i < 20
+  while i < 20:
     print(i)
     i = i + 1
-  end
-end
 
 main()

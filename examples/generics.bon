@@ -1,11 +1,9 @@
-def identity(x)
+def identity(x):
   return x
-end
 
-def add(x, y)
+def add(x, y):
   z = x + y
   return z
-end
 
 print("Calling 'identity' with a number: " ++ str(identity(1)))
 print("Calling 'identity' with a string: " ++ identity("hello!"))

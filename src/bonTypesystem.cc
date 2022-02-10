@@ -84,17 +84,15 @@ TypeVariable* CPointerType =
 
 void dump_environment() {
     // std::cout << "Environment state:" << std::endl;
-    // for (size_t i = 0; i < s_env_stack.size(); ++i) {
+    // for (size_t i = 0; i < s_type_env.stack.size(); ++i) {
     //     std::cout << "Environment #" << i << ":" << std::endl;
-    //     for (auto &entry : s_env_stack[i]) {
+    //     for (auto &entry : s_type_env.stack[i]) {
     //         auto type = entry.second->get_root();
+    //         if (type->type_operator_ != nullptr) {
+    //             std::cout << "type operator: " << type->type_operator_->type_constructor_ << std::endl;
+    //         }
     //         std::cout << entry.first << ":" << type->type_name_ << std::endl;
     //     }
-    // }
-    // std::cout << "Environment #" << s_env_stack.size() << ":" << std::endl;
-    // for (auto &entry : s_type_env) {
-    //     auto type = entry.second->get_root();
-    //     std::cout << entry.first << ":" << type->type_name_ << std::endl;
     // }
 }
 
@@ -646,7 +644,7 @@ void _unify(TypeVariable* lhs, TypeVariable* rhs,
     if (mismatch) {
         auto mismatch_str = lhs_type->get_name() + " != "
                                                  + rhs_type->get_name();
-        // dump_environment();
+        dump_environment();
         bon::logger.error("type mismatch", mismatch_str);
         return;
     }

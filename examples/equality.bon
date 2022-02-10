@@ -1,21 +1,17 @@
-type color
+class color:
   Cyan
   Magenta
   Yellow
   Black
-end
 
-impl Eq<color>
-  def operator==(a:color, b:color) -> bool
-    match (a,b)
+impl Eq(color):
+  def operator==(a:color, b:color) -> bool:
+    match (a,b):
       (Cyan, Cyan) => true
       (Magenta, Magenta) => true
       (Yellow, Yellow) => true
       (Black, Black) => true
       _ => false
-    end
-  end
-end
 
 print("Black == Yellow: " ++ str(Black == Yellow))
 print("Magenta == Magenta: " ++ str(Magenta == Magenta))

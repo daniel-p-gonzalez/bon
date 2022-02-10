@@ -14,6 +14,7 @@ std::string BON_STDLIB_PATH;
 int stdin_orig = -1;
 
 bool file_to_stdin(std::string filename) {
+  bon::logger.set_file_prefix("");
   if (stdin_orig == -1) {
     stdin_orig = dup(0);
   }
@@ -26,6 +27,7 @@ bool file_to_stdin(std::string filename) {
       bon::logger.error("error", "File not found: " + filename);
       return false;
     }
+    bon::logger.set_file_prefix(BON_STDLIB_PATH + "/");
   }
   return true;
 }

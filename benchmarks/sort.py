@@ -1,12 +1,3 @@
-# test run with:
-# $ time python3 benchmarks/sort.py
-# Finished in 2934ms (time for sort only)
-
-# (time for full run including random number generation)
-# real    0m6.648s
-# user    0m5.739s
-# sys     0m0.894s
-
 import time
 import random
 

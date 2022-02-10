@@ -1,63 +1,51 @@
 # strong or weak type system?
-type type_safety
+class TypeSafety:
   Strong
   Weak
-end
 
 # types checked at compile type, or runtime?
-type type_checking
+class TypeChecking:
   Static
   Dynamic
-end
 
-type type_system
-  TypeSystem(type_safety, type_checking)
-end
+class TypeSystem:
+  TypeSystem(TypeSafety, TypeChecking)
 
-type language
-  Language(name: string,
-           typing: type_system,
-           type_infer: bool,
-           pattern_match: bool,
-           polymorphism_support: string)
-end
-
-def describe_language(lang)
+def describe_language(lang):
   desc = lang.name ++ " is a programming language with:\n"
 
-  desc = match lang.typing
-    TypeSystem(Strong, Static) => desc ++ "  - Strong, static type system\n"
-    TypeSystem(Strong, Dynamic) => desc ++ "  - Strong, dynamic type system\n"
-    TypeSystem(Weak, Static) => desc ++ "  - Weak, static type system\n"
-    TypeSystem(Weak, Dynamic) => desc ++ "  - Weak, dynamic type system\n"
-  end
+  desc = match lang.typing:
+           TypeSystem(Strong, Static) => desc ++ "  - Strong, static type system\n"
+           TypeSystem(Strong, Dynamic) => desc ++ "  - Strong, dynamic type system\n"
+           TypeSystem(Weak, Static) => desc ++ "  - Weak, static type system\n"
+           TypeSystem(Weak, Dynamic) => desc ++ "  - Weak, dynamic type system\n"
 
-  desc = match lang.type_infer
-    true => desc ++ "  - Type Inference\n"
-    false => desc
-  end
+  desc = match lang.type_infer:
+           true => desc ++ "  - Type Inference\n"
+           false => desc
 
-  desc = match lang.pattern_match
-    true => desc ++ "  - Pattern Matching\n"
-    false => desc
-  end
+  desc = match lang.pattern_match:
+           true => desc ++ "  - Pattern Matching\n"
+           false => desc
 
   desc = desc ++ "  - Support for polymorphism through " ++ lang.polymorphism_support
   return desc ++ "\n"
-end
 
-# implement printing and conversion to string for language type
-impl Print<language>
-  def print(lang:language) -> ()
-    print(describe_language(lang))
-  end
+class Language(Print):
+  Language(name: string,
+           typing: TypeSystem,
+           type_infer: bool,
+           pattern_match: bool,
+           polymorphism_support: string)
 
-  def to_string(lang:language) -> string
+  # implement printing and conversion to string for language type
+  def to_string(lang: Language) -> string:
     lang.describe_language()
-  end
-end
 
-def main()
+  def print(lang: Language) -> ():
+    print(lang.to_string())
+
+def main():
   bon = Language("Bon", TypeSystem(Strong, Static), true, true, "typeclasses")
   cpp = Language("C++", TypeSystem(Weak, Static), false, false, "classes")
   ocaml = Language("OCaml", TypeSystem(Strong, Static), true, true, "classes and modules")
@@ -73,6 +61,5 @@ def main()
   print(elixir)
   print(rust)
   print(python)
-end
 
 main()

@@ -1,14 +1,3 @@
-// https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-gcc-1.html
-// test run with:
-// $ clang++ -O3 nbody.cc -o nbody
-// $ time ./nbody 50000000
-// -0.169075164
-// -0.169059907
-//
-// real    0m5.179s
-// user    0m5.173s
-// sys     0m0.000s
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

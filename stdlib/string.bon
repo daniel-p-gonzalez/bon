@@ -15,126 +15,95 @@ cdef string_to_int(str:string) -> int
 cdef string_to_float(str:string) -> float
 
 # TODO: change to option type
-def find(str:string, substr:string) -> int
-  cfind(str, substr, 0)
-end
+def find(str:string, substr:string) -> int:
+  return cfind(str, substr, 0)
 
-def find_next(str:string, substr:string, from_pos:int) -> int
-  cfind(str, substr, from_pos+1)
-end
+def find_next(str:string, substr:string, from_pos:int) -> int:
+  return cfind(str, substr, from_pos+1)
 
-def substr(str:string, start:int, num_chars:int) -> string
-  csubstr(str, start, num_chars)
-end
+def substr(str:string, start:int, num_chars:int) -> string:
+  return csubstr(str, start, num_chars)
 
-def strlen(str:string) -> int
-  cstrlen(str)
-end
+def strlen(str:string) -> int:
+  return cstrlen(str)
 
-def char_at(str:string, index:int)
-  csubstr(str, index, 1)
-end
+def char_at(str:string, index:int):
+  return csubstr(str, index, 1)
 
-def split(str:string, delim:string)
+def split(str:string, delim:string):
   v = []
   skip_len = delim.strlen()
   token_start = 0
   pos = str.find(delim)
-  while pos != -1
+  while pos != -1:
     substr = str.substr(token_start, pos-token_start)
     v.push(substr)
     token_start = pos+skip_len
     pos = str.find_next(delim, pos)
-  end
   substr = str.substr(token_start, str.strlen()-token_start)
   v.push(substr)
   return v
-end
 
-def ord(str:string) -> int
-  if cstrlen(str) == 1
+def ord(str:string) -> int:
+  if cstrlen(str) == 1:
     cstr_ord(str)
-  else
+  else:
     -1
-  end
-end
 
-def hash(str:string) -> int
+def hash(str:string) -> int:
   hash = 14695981039346656037
   i = 0
-  while i < str.strlen()
+  while i < str.strlen():
     hash = hash ^ str.char_at(i).ord()
     hash = hash * 1099511628211
     i = i + 1
-  end
 
-  # TODO: this abs is need until uint is supported
+  # TODO: this abs is needed until uint is supported
   return abs(hash)
-end
 
-impl Concat<string>
-  def operator++(a:string, b:string) -> string
-    cstrconcat(a,b)
-  end
-end
+impl Concat(string):
+  def operator++(a:string, b:string) -> string:
+    return cstrconcat(a,b)
 
-impl Eq<string>
-  def operator==(a:string, b:string) -> bool
-    cstrcmp(a,b) == 0
-  end
+impl Eq(string):
+  def operator==(a:string, b:string) -> bool:
+    return cstrcmp(a,b) == 0
 
-  def operator!=(a:string, b:string) -> bool
-    cstrcmp(a,b) != 0
-  end
-end
+  def operator!=(a:string, b:string) -> bool:
+    return cstrcmp(a,b) != 0
 
-impl Ord<string>
-  def operator>(a:string, b:string) -> bool
-    cstrcmp(a,b) > 0
-  end
+impl Ord(string):
+  def operator>(a:string, b:string) -> bool:
+    return cstrcmp(a,b) > 0
 
-  def operator<(a:string, b:string) -> bool
-    cstrcmp(a,b) < 0
-  end
+  def operator<(a:string, b:string) -> bool:
+    return cstrcmp(a,b) < 0
 
-  def operator>=(a:string, b:string) -> bool
-    cstrcmp(a,b) >= 0
-  end
+  def operator>=(a:string, b:string) -> bool:
+    return cstrcmp(a,b) >= 0
 
-  def operator<=(a:string, b:string) -> bool
-    cstrcmp(a,b) <= 0
-  end
-end
+  def operator<=(a:string, b:string) -> bool:
+    return cstrcmp(a,b) <= 0
 
-impl Integer<string>
-  def to_integer(str:string) -> int
-    string_to_int(str)
-  end
-end
+impl Integer(string):
+  def to_integer(str:string) -> int:
+    return string_to_int(str)
 
-impl Float<string>
-  def to_float(str:string) -> float
+impl Float(string):
+  def to_float(str:string) -> float:
     string_to_float(str)
-  end
-end
 
-impl Print<string>
-  def to_string(x:string) -> string
-    x
-  end
+impl Print(string):
+  def to_string(x:string) -> string:
+    return x
 
-  def print(x:string) -> ()
+  def print(x:string) -> ():
     print_string(x)
-  end
 
-  def write(x:string) -> ()
+  def write(x:string) -> ():
     write_string(x)
-  end
-end
 
-impl BoundsCheck<string>
-  def out_of_bounds(template:string) -> string
+impl BoundsCheck(string):
+  def out_of_bounds(template:string) -> string:
     template
     return ""
-  end
-end

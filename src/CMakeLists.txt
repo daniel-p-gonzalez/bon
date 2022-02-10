@@ -26,4 +26,4 @@ llvm_map_components_to_libnames(llvm_libs support core irreader mcjit native sca
 # Link against LLVM libraries
 target_link_libraries(bon ${llvm_libs})
 install(TARGETS bon DESTINATION $ENV{HOME}/.bon/${BON_VERSION}/bin)
-install(DIRECTORY ../stdlib DESTINATION $ENV{HOME}/.bon/${BON_VERSION}/)
+install(DIRECTORY ../stdlib DESTINATION $ENV{HOME}/.bon/${BON_VERSION})

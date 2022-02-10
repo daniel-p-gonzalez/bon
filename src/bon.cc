@@ -224,37 +224,37 @@ int main(int argc, char* argv[]) {
 enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL, REPL };
   const option::Descriptor usage[] =
   {
-    {UNKNOWN, 0, "", "",option::Arg::None,
+    {UNKNOWN, 0, "", "", option::Arg::None,
       "USAGE: bon [options] [file]\n\n"
       "Options:" },
 
-    {HELP, 0,"", "help",option::Arg::None,
+    {HELP, 0,"", "help", option::Arg::None,
       "  --help  \tPrint usage and exit." },
 
-    {VERSION, 0,"","version",option::Arg::None,
+    {VERSION, 0,"", "version", option::Arg::None,
       "  --version  \tDisplay version info." },
 
-    {VERBOSE, 0,"v","verbose",option::Arg::None,
+    {VERBOSE, 0, "v", "verbose", option::Arg::None,
       "  --verbose, -v  \tEnable verbose output from compiler." },
 
-    {ASM, 0,"","asm",option::Arg::None,
+    {ASM, 0, "", "asm", option::Arg::None,
       "  --asm  \tDump llvm-asm output for compiled modules." },
 
     {OPT_LEVEL, 0, "O", "opt-level", option::Arg::Optional,
       " --opt-level, -O \tSet optimization level (0-3)"},
 
-    {REPL, 0,"","repl",option::Arg::None,
+    {REPL, 0, "", "repl", option::Arg::None,
       "  --repl  \tStart an interactive Bon session." },
 
-    {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
+    {UNKNOWN, 0, "", "", option::Arg::None, "\nExamples:\n"
                                   "  bon hello.bon\n"
                                   "  bon --version\n"
                                   "  bon --asm -O3 examples/hello.bon\n" },
-    {0,0,0,0,0,0}
+    {0, 0, 0, 0, 0, 0}
   };
 
   // skip program name argv[0] if present
-  argc-=(argc>0); argv+=(argc>0);
+  argc -= (argc > 0); argv += (argc > 0);
   option::Stats  stats(usage, argc, argv);
   std::vector<option::Option> options(stats.options_max);
   std::vector<option::Option> buffer(stats.buffer_max);
@@ -284,7 +284,7 @@ enum  optionIndex { UNKNOWN, HELP, VERBOSE, VERSION, ASM, OPT_LEVEL, REPL };
   bool unknown_options = false;
   for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next()) {
     std::cout << "Unknown option: "
-              << std::string(opt->name,opt->namelen) << "\n";
+              << std::string(opt->name, opt->namelen) << "\n";
     unknown_options = true;
   }
 

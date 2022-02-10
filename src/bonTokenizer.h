@@ -78,10 +78,9 @@ enum Token {
   // typing
   tok_arrow,
   tok_colon,
-  tok_type,
-  tok_struct,
-  tok_typeconstructor,
   tok_class,
+  tok_struct,
+  tok_typeclass,
   tok_impl,
 
   // builtin
@@ -124,6 +123,9 @@ private:
 
   int next_char();
   Token next_token();
+  void eat_comment();
+  // this requires special handling
+  Token eof_token();
 
 public:
   Tokenizer();

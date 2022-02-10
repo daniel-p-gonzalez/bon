@@ -1,28 +1,21 @@
-class MultiDispatch<T1, T2>
-  def foo(a:T1, b:T2) -> ();
-end
+typeclass MultiDispatch(T1, T2):
+  def foo(a:T1, b:T2) -> ()
 
-impl MultiDispatch<int, float>
-  def foo(a:int, b:float) -> ()
+impl MultiDispatch(int, float):
+  def foo(a:int, b:float) -> ():
     print("Got an int: " ++ str(a) ++ ", and a float: " ++ str(b))
-  end
-end
 
-impl MultiDispatch<string, int>
-  def foo(a:string, b:int) -> ()
+impl MultiDispatch(string, int):
+  def foo(a:string, b:int) -> ():
     print("Got an string: " ++ str(a) ++ ", and an int: " ++ str(b))
-  end
-end
 
-def some_function(a, b)
+def some_function(a, b):
   foo(a,b)
-end
 
-def main() -> ()
+def main() -> ():
   some_function(5, 10.0)
   some_function("Hello, World!", 10)
 
   return ()
-end
 
 main()

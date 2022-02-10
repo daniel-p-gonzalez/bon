@@ -1,43 +1,30 @@
 # ported from: https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-gcc-1.html
-# test run with:
-# $ time bon benchmarks/nbody.bon
-# -0.169075163828524
-# -0.169059906802725
-# Finished in 6332ms (time for run, without compile time)
-#
-# (total time include compile)
-# real    0m6.510s
-# user    0m6.507s
-# sys     0m0.000s
 
 import time
 
-type planet
+class planet:
   Planet(x:float, y:float, z:float,
          vx:float, vy:float, vz:float,
          mass:float)
-end
 
 # to support "unsafe" access to vector of planets,
 # need to provide an out_of_bounds impl for the planet type
-impl BoundsCheck<planet>
-  def out_of_bounds(template:planet) -> planet
+impl BoundsCheck(planet):
+  def out_of_bounds(template: planet) -> planet:
     # let's just fail hard if we index out of bounds:
     print("Accessed array out of bounds!")
     exit(-1)
     # won't get here
     return template
-  end
-end
 
-def advance(bodies)
+def advance(bodies):
   nbodies = bodies.len()
   dt = 0.01
   i = 0
-  while i < nbodies
+  while i < nbodies:
     j = i + 1
     body = bodies[i]
-    while j < nbodies
+    while j < nbodies:
       body2 = bodies[j]
       dx = body.x - body2.x
       dy = body.y - body2.y
@@ -51,29 +38,25 @@ def advance(bodies)
       body2.vy = body2.vy + dy * body.mass * mag
       body2.vz = body2.vz + dz * body.mass * mag
       j = j + 1
-    end
     i = i + 1
-  end
 
   i = 0
-  while i < nbodies
+  while i < nbodies:
     body = bodies[i]
     body.x = body.x + dt * body.vx
     body.y = body.y + dt * body.vy
     body.z = body.z + dt * body.vz
     i = i + 1
-  end
-end
 
-def energy(bodies)
+def energy(bodies):
   nbodies = bodies.len()
   e = 0.0
   i = 0
-  while i < nbodies
+  while i < nbodies:
     body = bodies[i]
     e = e + 0.5 * body.mass * (body.vx * body.vx + body.vy * body.vy + body.vz * body.vz)
     j = i + 1
-    while j < nbodies
+    while j < nbodies:
       body2 = bodies[j]
       dx = body.x - body2.x
       dy = body.y - body2.y
@@ -81,28 +64,23 @@ def energy(bodies)
       distance = sqrt(dx * dx + dy * dy + dz * dz)
       e = e - (body.mass * body2.mass) / distance
       j = j + 1
-    end
     i = i + 1
-  end
   return e
-end
 
-def offset_momentum(bodies)
+def offset_momentum(bodies):
   nbodies = bodies.len()
   pi = 3.141592653589793
   solar_mass = 4.0 * pi * pi
   i = 0
   body = bodies[0]
-  while i < nbodies
+  while i < nbodies:
     body2 = bodies[i]
     body.vx = body.vx - (body2.vx * body2.mass) / solar_mass
     body.vy = body.vy - (body2.vy * body2.mass) / solar_mass
     body.vz = body.vz - (body2.vz * body2.mass) / solar_mass
     i = i + 1
-  end
-end
 
-def main()
+def main():
   start_time = get_time()
   pi = 3.141592653589793
   solar_mass = 4.0 * pi * pi
@@ -146,13 +124,11 @@ def main()
   offset_momentum(bodies)
   print(energy(bodies))
   i = 0
-  while i < n
+  while i < n:
     advance(bodies)
     i = i + 1
-  end
   print(energy(bodies))
   total_time = get_time() - start_time
   print("Finished in " ++ (total_time/1000).str() ++ "ms")
-end
 
 main()

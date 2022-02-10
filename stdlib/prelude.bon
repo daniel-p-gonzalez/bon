@@ -1,64 +1,47 @@
 cdef exit(code:int) -> ()
 
-class Object<T>
-  def delete(self:T) -> ();
-end
+typeclass Object(T):
+  def delete(self:T) -> ()
 
-class Concat<T>
-  def operator++(a:T, b:T) -> T;
-end
+typeclass Concat(T):
+  def operator++(a:T, b:T) -> T
 
-class Print<T>
-  def to_string(x:T) -> string;
-  def print(x:T) -> ();
-  def write(x:T) -> ();
-end
+typeclass Print(T):
+  def to_string(x:T) -> string
+  def print(x:T) -> ()
+  def write(x:T) -> ()
 
-def str(x) -> string
-  to_string(x)
-end
 
-class Integer<T>
-  def to_integer(x:T) -> int;
-end
+typeclass Integer(T):
+  def to_integer(x:T) -> int
 
-class Float<T>
-  def to_float(x:T) -> float;
-end
+typeclass Float(T):
+  def to_float(x:T) -> float
 
-def int(x) -> int
-  to_integer(x)
-end
+def str(x) -> string: to_string(x)
+def int(x) -> int: to_integer(x)
+def float(x) -> float: to_float(x)
 
-def float(x) -> float
-  to_float(x)
-end
+typeclass Eq(T):
+  def operator==(a:T, b:T) -> bool
+  def operator!=(a:T, b:T) -> bool
 
-class Eq<T>
-  def operator==(a:T, b:T) -> bool;
-  def operator!=(a:T, b:T) -> bool;
-end
+typeclass Ord(T):
+  def operator>(a:T, b:T) -> bool
+  def operator<(a:T, b:T) -> bool
+  def operator>=(a:T, b:T) -> bool
+  def operator<=(a:T, b:T) -> bool
 
-class Ord<T>
-  def operator>(a:T, b:T) -> bool;
-  def operator<(a:T, b:T) -> bool;
-  def operator>=(a:T, b:T) -> bool;
-  def operator<=(a:T, b:T) -> bool;
-end
+typeclass Copy(T):
+  def copy(x:T) -> T
 
-class Copy<T>
-  def copy(x:T) -> T;
-end
-
-type pair<a,b>
+class<a,b> pair:
   Pair(a, b)
-end
 
-class BoundsCheck<T>
-  def out_of_bounds(template:T);
-end
+typeclass BoundsCheck(T):
+  def out_of_bounds(template:T)
 
-type tuple<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o>
+class<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o> tuple:
   Tuple3(a, b, c)
   Tuple4(a, b, c, d)
   Tuple5(a, b, c, d, e)
@@ -72,11 +55,10 @@ type tuple<a,b,c,d,e,f,g,h,i,j,k,l,m,n,o>
   Tuple13(a, b, c, d, e, f, g, h, i, j, k, l, m)
   Tuple14(a, b, c, d, e, f, g, h, i, j, k, l, m, n)
   Tuple15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
-end
 
+import bool
 import math
+import option
 import vector
 import string
-import option
-import bool
 import print

@@ -1,17 +1,15 @@
 # TODO: state should be uint64, not int64
-type rng
+class rng:
     RNG(state0:int, state1:int)
-end
 
 # xorshift128+
-def xorshift128plus(r:rng) -> int
+def xorshift128plus(r:rng) -> int:
     x = r.state0
     y = r.state1
     r.state0 = y
     x = x ^ (x << 23)
     r.state1 = x ^ y ^ (x >> 17) ^ (y >> 26)
     return r.state1 + y
-end
 
 # without function inlining, this is a bit slower
 # def rotl(x, k)
@@ -20,7 +18,7 @@ end
 
 # TODO: replace with xoshiro256**
 # xoroshiro128+
-def rand(r:rng) -> int
+def rand(r:rng) -> int:
   s0 = r.state0
   s1 = r.state1
   result = s0 + s1
@@ -34,21 +32,18 @@ def rand(r:rng) -> int
   # r.state1 = rotl(s1, 37)
 
   return result
-end
 
 # xorshift64
-def simple_rand(r:rng) -> int
+def simple_rand(r:rng) -> int:
   x = r.state0
   x = x ^ (x << 13)
   x = x ^ (x >> 7)
   x = x ^ (x << 17)
   r.state0 = x
   return x
-end
 
-def random_generator(seed:int)
+def random_generator(seed:int):
   srand = RNG(seed, seed)
   seed0 = seed + srand.simple_rand()
   seed1 = seed + srand.simple_rand()
   return new RNG(seed0, seed1)
-end

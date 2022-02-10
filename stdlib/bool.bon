@@ -1,40 +1,12 @@
-impl Eq<bool>
-  def operator==(a:bool, b:bool) -> bool
-    match (a, b)
+impl Eq(bool):
+  def operator==(a:bool, b:bool) -> bool:
+    match (a, b):
       (true, true) => true
       (false, false) => true
       _ => false
-    end
-  end
 
-  def operator!=(a:bool, b:bool) -> bool
-    match (a, b)
+  def operator!=(a:bool, b:bool) -> bool:
+    match (a, b):
       (true, true) => false
       (false, false) => false
       _ => true
-    end
-  end
-end
-
-impl Print<bool>
-  def print(x:bool) -> ()
-    match x
-      true => print("true")
-      false => print("false")
-    end
-  end
-
-  def write(x:bool) -> ()
-    match x
-      true => write("true")
-      false => write("false")
-    end
-  end
-
-  def to_string(x:bool) -> string
-    match x
-      true => "true"
-      false => "false"
-    end
-  end
-end
